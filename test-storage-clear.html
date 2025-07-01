@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Storage Clear</title>
+</head>
+<body>
+    <h1>Test Supabase Storage Clear</h1>
+    <button onclick="addTestData()">Add Test Data</button>
+    <button onclick="clearStorage()">Clear Storage</button>
+    <button onclick="showStorage()">Show Storage</button>
+    <div id="output"></div>
+
+    <script>
+        // Simulate the platformUtils clearWebStorage logic
+        async function clearWebStorage() {
+            const global = globalThis;
+
+            try {
+                // Clear localStorage items related to Supabase
+                if (global.localStorage) {
+                    // Get all localStorage keys first
+                    const allKeys = Object.keys(global.localStorage);
+                    
+                    // Filter for auth-related keys using a comprehensive pattern
+                    const authKeys = allKeys.filter((key) => {
+                        const lowerKey = key.toLowerCase();
+                        return (
+                            // Supabase specific patterns
+                            lowerKey.includes('supabase') ||
+                            lowerKey.startsWith('sb-') ||
+                            lowerKey.includes('sb-auth-token') ||
+                            // Generic auth patterns
+                            lowerKey.includes('auth') ||
+                            lowerKey.includes('token') ||
+                            lowerKey.includes('session') ||
+                            lowerKey.includes('user') ||
+                            lowerKey.includes('login') ||
+                            // Specific common keys
+                            key === 'access_token' ||
+                            key === 'refresh_token' ||
+                            key === 'id_token'
+                        );
+                    });
+
+                    // Remove all auth-related keys
+                    authKeys.forEach((key) => {
+                        try {
+                            global.localStorage.removeItem(key);
+                            console.log('Removed key:', key);
+                        } catch (e) {
+                            // Ignore individual key removal errors
+                        }
+                    });
+                }
+
+                // Clear sessionStorage as well
+                if (global.sessionStorage) {
+                    try {
+                        const sessionKeys = Object.keys(global.sessionStorage);
+                        const authSessionKeys = sessionKeys.filter((key) => {
+                            const lowerKey = key.toLowerCase();
+                            return (
+                                lowerKey.includes('supabase') || 
+                                lowerKey.startsWith('sb-') ||
+                                lowerKey.includes('auth') ||
+                                lowerKey.includes('token') ||
+                                lowerKey.includes('session') ||
+                                lowerKey.includes('user') ||
+                                lowerKey.includes('login')
+                            );
+                        });
+                        
+                        authSessionKeys.forEach((key) => {
+                            try {
+                                global.sessionStorage.removeItem(key);
+                                console.log('Removed session key:', key);
+                            } catch (e) {
+                                // Ignore individual key removal errors
+                            }
+                        });
+                    } catch (e) {
+                        // sessionStorage might not be available
+                    }
+                }
+
+                // Clear any authentication cookies by setting them to expire
+                if (global.document && global.document.cookie !== undefined && global.location) {
+                    const cookiesToClear = [
+                        'sb-access-token',
+                        'sb-refresh-token',
+                        'supabase-auth-token',
+                        'supabase.auth.token',
+                        'auth-token',
+                        'access_token',
+                        'refresh_token'
+                    ];
+
+                    cookiesToClear.forEach((cookieName) => {
+                        try {
+                            global.document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+                            global.document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${global.location.hostname};`;
+                            // Also try with leading dot for subdomain clearing
+                            global.document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${global.location.hostname};`;
+                            console.log('Cleared cookie:', cookieName);
+                        } catch (e) {
+                            // Ignore cookie clearing errors
+                        }
+                    });
+                }
+
+            } catch (error) {
+                console.error('Error clearing web storage:', error);
+            }
+        }
+
+        function addTestData() {
+            // Add test data to localStorage
+            localStorage.setItem('sb-auth-token', 'test-token');
+            localStorage.setItem('access_token', 'test-access');
+            localStorage.setItem('supabase.auth.token', 'test-supabase');
+            localStorage.setItem('sb-project-id-auth-token', 'test-project-token');
+            localStorage.setItem('other-data', 'should-remain');
+            
+            // Add test data to sessionStorage
+            sessionStorage.setItem('sb-session-token', 'test-session');
+            sessionStorage.setItem('auth-session', 'test-auth-session');
+            sessionStorage.setItem('other-session', 'should-remain');
+            
+            showStorage();
+        }
+
+        function clearStorage() {
+            clearWebStorage();
+            setTimeout(showStorage, 100);
+        }
+
+        function showStorage() {
+            const output = document.getElementById('output');
+            let html = '<h2>Current Storage:</h2>';
+            
+            html += '<h3>localStorage:</h3><ul>';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                html += `<li><strong>${key}:</strong> ${value}</li>`;
+            }
+            html += '</ul>';
+
+            html += '<h3>sessionStorage:</h3><ul>';
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                const value = sessionStorage.getItem(key);
+                html += `<li><strong>${key}:</strong> ${value}</li>`;
+            }
+            html += '</ul>';
+
+            output.innerHTML = html;
+        }
+
+        // Show initial storage on load
+        showStorage();
+    </script>
+</body>
+</html>
