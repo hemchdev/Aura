@@ -29,6 +29,8 @@ import {
 import { useColors } from '@/hooks/useColors';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
+import { notificationService } from '@/lib/notificationService';
+import { speechService } from '@/lib/speech';
 
 export default function SettingsTab() {
   const colors = useColors();
@@ -109,32 +111,74 @@ export default function SettingsTab() {
   };
 
   const handleNotificationToggle = async (enabled: boolean) => {
-    if (profile) {
+    if (!profile) {
+      Alert.alert('Error', 'Profile not loaded. Please try again.');
+      return;
+    }
+
+    try {
+      // Optimistically update the UI first
+      const previousSettings = profile.settings;
+      
+      await updateProfile({
+        settings: {
+          ...profile.settings,
+          notifications: enabled,
+        },
+      });
+
+      // Initialize notification service if enabling notifications
+      if (enabled) {
+        await notificationService.initialize();
+        await notificationService.setupNotificationCategories();
+      }
+      
+    } catch (error: any) {
+      console.error('Failed to update notification setting:', error);
+      Alert.alert('Error', 'Failed to update notification setting. Please try again.');
+      
+      // Revert the optimistic update if needed
       try {
         await updateProfile({
           settings: {
             ...profile.settings,
-            notifications: enabled,
+            notifications: !enabled, // Revert
           },
         });
-      } catch (error) {
-        Alert.alert('Error', 'Failed to update notification setting');
+      } catch (revertError) {
+        console.error('Failed to revert notification setting:', revertError);
       }
     }
   };
 
   const handleVoiceToggle = async (enabled: boolean) => {
-    if (profile) {
-      try {
-        await updateProfile({
-          settings: {
-            ...profile.settings,
-            voice_enabled: enabled,
-          },
-        });
-      } catch (error) {
-        Alert.alert('Error', 'Failed to update voice setting');
+    if (!profile) {
+      Alert.alert('Error', 'Profile not loaded. Please try again.');
+      return;
+    }
+
+    try {
+      await updateProfile({
+        settings: {
+          ...profile.settings,
+          voice_enabled: enabled,
+        },
+      });
+
+      // Test speech synthesis if enabling voice
+      if (enabled) {
+        try {
+          // Test with a short message
+          await speechService.speak('Voice assistant enabled');
+        } catch (speechError) {
+          console.warn('Speech test failed:', speechError);
+          // Don't revert the setting, just warn
+        }
       }
+      
+    } catch (error: any) {
+      console.error('Failed to update voice setting:', error);
+      Alert.alert('Error', 'Failed to update voice setting. Please try again.');
     }
   };
 
@@ -459,8 +503,17 @@ export default function SettingsTab() {
             <Switch
               value={profile?.settings?.notifications ?? true}
               onValueChange={handleNotificationToggle}
-              trackColor={{ false: colors.muted, true: colors.primary }}
-              thumbColor={colors.background}
+              trackColor={{ 
+                false: colors.mutedForeground + '40', // 40 = 25% opacity
+                true: colors.primary + '80' // 80 = 50% opacity for track
+              }}
+              thumbColor={
+                profile?.settings?.notifications 
+                  ? colors.primary 
+                  : colors.background
+              }
+              ios_backgroundColor={colors.mutedForeground + '40'}
+              style={{ transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }] }}
             />
           </View>
 
@@ -477,8 +530,17 @@ export default function SettingsTab() {
             <Switch
               value={profile?.settings?.voice_enabled ?? true}
               onValueChange={handleVoiceToggle}
-              trackColor={{ false: colors.muted, true: colors.primary }}
-              thumbColor={colors.background}
+              trackColor={{ 
+                false: colors.mutedForeground + '40', // 40 = 25% opacity
+                true: colors.primary + '80' // 80 = 50% opacity for track
+              }}
+              thumbColor={
+                profile?.settings?.voice_enabled 
+                  ? colors.primary 
+                  : colors.background
+              }
+              ios_backgroundColor={colors.mutedForeground + '40'}
+              style={{ transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }] }}
             />
           </View>
         </View>

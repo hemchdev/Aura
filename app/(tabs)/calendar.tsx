@@ -5,13 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Modal,
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
-import { Plus, Edit, Trash2, Clock, MapPin, X } from 'lucide-react-native';
+import { Plus, Edit, Trash2, Clock, MapPin, X, CheckCircle, AlertCircle } from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
@@ -40,6 +39,9 @@ export default function CalendarTab() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [newEvent, setNewEvent] = useState({
@@ -60,20 +62,61 @@ export default function CalendarTab() {
   const calendarTheme = useMemo(() => {
     const isDark = resolvedTheme === 'dark';
     
-    // For dark mode: black background with white letters
-    // For light mode: white background with black letters
-    const backgroundColor = isDark ? '#000000' : '#FFFFFF'; // Pure black for dark, pure white for light
-    const textColor = isDark ? '#FFFFFF' : '#000000'; // White letters for dark, black letters for light
-    const arrowColor = isDark ? '#FFFFFF' : '#000000'; // White arrows for dark, black arrows for light
+    // Using color system for better theme integration
+    // For dark mode: Use a slightly lighter shade than the background for better visibility
+    // For light mode: Use pure white for clean appearance
+    const backgroundColor = isDark ? colors.card : '#FFFFFF';
+    const textColor = colors.foreground;
     
     return {
       backgroundColor: backgroundColor,
       calendarBackground: backgroundColor,
+      // Header (month/year and navigation arrows) styling
+      'stylesheet.calendar.header': {
+        header: {
+          backgroundColor: backgroundColor, // Explicit header background
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          paddingLeft: 10,
+          paddingRight: 10,
+          marginTop: 6,
+          alignItems: 'center',
+        },
+        monthText: {
+          fontSize: 18,
+          fontWeight: '600',
+          color: textColor, // Explicit month text color
+          margin: 10,
+        },
+        arrow: {
+          padding: 10,
+          backgroundColor: 'transparent', // Ensure arrow background is transparent
+        },
+        arrowText: {
+          color: textColor, // Explicit arrow color
+          fontSize: 18,
+        },
+        week: {
+          marginTop: 7,
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+          backgroundColor: backgroundColor, // Week header background
+        },
+        dayHeader: {
+          marginTop: 2,
+          marginBottom: 7,
+          width: 32,
+          textAlign: 'center',
+          fontSize: 14,
+          fontWeight: '600',
+          color: textColor, // Day header color
+        },
+      },
       // Text colors - comprehensive coverage
       textSectionTitleColor: textColor, // Month/year and day headers (S M T W T F S)
       monthTextColor: textColor, // Month/year text
       dayTextColor: textColor, // Day numbers
-      textDisabledColor: isDark ? '#666666' : '#CCCCCC', // Medium gray for disabled days
+      textDisabledColor: colors.mutedForeground, // Use theme's muted color
       // Selected and interactive elements
       selectedDayBackgroundColor: colors.primary,
       selectedDayTextColor: colors.primaryForeground, // Text on selected day
@@ -82,8 +125,8 @@ export default function CalendarTab() {
       dotColor: colors.primary,
       selectedDotColor: colors.primaryForeground, // Dot on selected day
       // Navigation arrows
-      arrowColor: arrowColor, // Left/right navigation arrows
-      disabledArrowColor: isDark ? '#666666' : '#CCCCCC', // Medium gray for disabled arrows
+      arrowColor: textColor, // Left/right navigation arrows
+      disabledArrowColor: colors.mutedForeground, // Use theme's muted color
       indicatorColor: colors.primary,
       // Font weights and sizes
       textMonthFontWeight: '600' as const,
@@ -119,18 +162,55 @@ export default function CalendarTab() {
   };
 
   const parseAMPMTime = (timeStr: string) => {
-    // Convert "12:00 PM" format to 24-hour format
-    const [time, period] = timeStr.split(' ');
-    const [hours, minutes] = time.split(':');
-    let hour24 = parseInt(hours);
-    
-    if (period === 'AM' && hour24 === 12) {
-      hour24 = 0;
-    } else if (period === 'PM' && hour24 !== 12) {
-      hour24 += 12;
+    try {
+      // Convert "12:00 PM" format to 24-hour format
+      const parts = timeStr.split(' ');
+      
+      // Default values in case parsing fails
+      let hour24 = 12;
+      let minutes = 0;
+      
+      if (parts.length >= 2) {
+        const time = parts[0];
+        const period = parts[1];
+        
+        if (time && time.includes(':')) {
+          const [hours, mins] = time.split(':');
+          
+          if (hours && !isNaN(parseInt(hours))) {
+            hour24 = parseInt(hours);
+          }
+          
+          if (mins && !isNaN(parseInt(mins))) {
+            minutes = parseInt(mins);
+          }
+          
+          // Convert to 24-hour format
+          if (period === 'AM' && hour24 === 12) {
+            hour24 = 0;
+          } else if (period === 'PM' && hour24 !== 12) {
+            hour24 += 12;
+          }
+        }
+      }
+      
+      return { hours: hour24, minutes };
+    } catch (error) {
+      console.error('Error parsing time:', error);
+      // Return default values if parsing fails
+      return { hours: 12, minutes: 0 };
     }
-    
-    return { hours: hour24, minutes: parseInt(minutes) };
+  };
+
+  // Modal helper functions
+  const displayErrorModal = (message: string) => {
+    setModalMessage(message);
+    setShowErrorModal(true);
+  };
+
+  const displaySuccessModal = (message: string) => {
+    setModalMessage(message);
+    setShowSuccessModal(true);
   };
 
   useEffect(() => {
@@ -163,14 +243,14 @@ export default function CalendarTab() {
 
       if (error) {
         console.error('Error loading events:', error);
-        Alert.alert('Error', 'Failed to load events: ' + error.message);
+        displayErrorModal('Failed to load events: ' + error.message);
         return;
       }
       
       setEvents(data || []);
     } catch (error) {
       console.error('Error loading events:', error);
-      Alert.alert('Error', 'Failed to load events');
+      displayErrorModal('Failed to load events');
     } finally {
       setLoading(false);
     }
@@ -178,7 +258,7 @@ export default function CalendarTab() {
 
   const createEvent = async () => {
     if (!user || !newEvent.title.trim()) {
-      Alert.alert('Error', 'Please enter an event title');
+      displayErrorModal('Please enter an event title');
       return;
     }
 
@@ -221,10 +301,10 @@ export default function CalendarTab() {
       // Reload events
       await loadEvents();
       
-      Alert.alert('Success', 'Event created successfully!');
+      displaySuccessModal('Event created successfully!');
     } catch (error) {
       console.error('Error creating event:', error);
-      Alert.alert('Error', 'Failed to create event');
+      displayErrorModal('Failed to create event');
     }
   };
 
@@ -253,7 +333,7 @@ export default function CalendarTab() {
 
   const updateEvent = async () => {
     if (!user || !selectedEvent || !newEvent.title.trim()) {
-      Alert.alert('Error', 'Please enter an event title');
+      displayErrorModal('Please enter an event title');
       return;
     }
 
@@ -296,10 +376,10 @@ export default function CalendarTab() {
       // Reload events
       await loadEvents();
       
-      Alert.alert('Success', 'Event updated successfully!');
+      displaySuccessModal('Event updated successfully!');
     } catch (error) {
       console.error('Error updating event:', error);
-      Alert.alert('Error', 'Failed to update event');
+      displayErrorModal('Failed to update event');
     }
   };
 
@@ -338,11 +418,11 @@ export default function CalendarTab() {
       // Remove from local state immediately for better UX
       setEvents(prevEvents => prevEvents.filter(e => e.id !== event.id));
       
-      Alert.alert('Success', 'Event deleted successfully!');
+      displaySuccessModal('Event deleted successfully!');
       
     } catch (error: any) {
       console.error('Delete failed:', error);
-      Alert.alert('Error', `Failed to delete event: ${error?.message || 'Unknown error'}`);
+      displayErrorModal(`Failed to delete event: ${error?.message || 'Unknown error'}`);
       // Reload events in case of error to sync with database
       await loadEvents();
     } finally {
@@ -410,6 +490,7 @@ export default function CalendarTab() {
       padding: 20,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+      backgroundColor: colors.background,
     },
     headerTitle: {
       fontSize: 28,
@@ -425,13 +506,16 @@ export default function CalendarTab() {
       alignItems: 'center',
     },
     calendar: {
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      backgroundColor: colors.card, // Improved for dark mode
+      borderWidth: 1,
+      borderColor: colors.border, // Use theme border color
+      backgroundColor: 'transparent', // Use transparent to let theme handle background
       borderRadius: 16, // Modern card look
+      marginHorizontal: 10, // Add some margin for better appearance
+      marginTop: 10,
+      marginBottom: 10,
       shadowColor: '#000', // Use default black shadow
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.15,
+      shadowOpacity: resolvedTheme === 'dark' ? 0.3 : 0.1,
       shadowRadius: 8,
       elevation: 4,
     },
@@ -446,12 +530,19 @@ export default function CalendarTab() {
       marginBottom: 16,
     },
     eventCard: {
-      backgroundColor: colors.card,
+      // In dark mode, use a slightly lighter color than the card background
+      // In light mode, use a slightly off-white for subtle distinction
+      backgroundColor: resolvedTheme === 'dark' ? '#334155' : '#F8FAFC', // Slate-700 for dark, slate-50 for light
       borderRadius: 12,
       padding: 16,
       marginBottom: 12,
       borderWidth: 1,
       borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: resolvedTheme === 'dark' ? 0.3 : 0.1,
+      shadowRadius: 2,
+      elevation: 2,
     },
     eventHeader: {
       flexDirection: 'row',
@@ -478,7 +569,7 @@ export default function CalendarTab() {
     eventTitle: {
       fontSize: 16,
       fontWeight: '600',
-      color: colors.cardForeground,
+      color: colors.foreground, // Use theme foreground color for better contrast
       flex: 1,
       marginRight: 8,
     },
@@ -489,12 +580,12 @@ export default function CalendarTab() {
     },
     eventDetailText: {
       fontSize: 14,
-      color: colors.mutedForeground,
+      color: colors.mutedForeground, // Use theme's mutedForeground for consistency
       marginLeft: 8,
     },
     eventDescription: {
       fontSize: 14,
-      color: colors.mutedForeground,
+      color: colors.mutedForeground, // Use theme's mutedForeground for consistency
       marginTop: 8,
       lineHeight: 20,
     },
@@ -528,12 +619,14 @@ export default function CalendarTab() {
       padding: 20,
       width: '100%',
       maxWidth: 400,
+      alignItems: 'center', // Center align content for better modal appearance
     },
     modalHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: 20,
+      width: '100%', // Ensure header takes full width
     },
     modalTitle: {
       fontSize: 20,
@@ -550,10 +643,22 @@ export default function CalendarTab() {
       lineHeight: 24,
       textAlign: 'center',
     },
+    modalMessage: {
+      fontSize: 16,
+      color: colors.cardForeground,
+      textAlign: 'center',
+      lineHeight: 24,
+      marginBottom: 24,
+    },
+    modalIcon: {
+      marginBottom: 16,
+      alignSelf: 'center', // Center the icon
+    },
     modalActions: {
       flexDirection: 'row',
-      justifyContent: 'flex-end',
+      justifyContent: 'space-between',
       marginTop: 12,
+      width: '100%', // Ensure actions take full width
     },
     modalButton: {
       borderRadius: 8,
@@ -573,6 +678,9 @@ export default function CalendarTab() {
     destructiveButton: {
       backgroundColor: colors.destructive,
     },
+    primaryButton: {
+      backgroundColor: colors.primary,
+    },
     input: {
       borderWidth: 1,
       borderColor: colors.border,
@@ -581,7 +689,8 @@ export default function CalendarTab() {
       marginBottom: 16,
       fontSize: 16,
       color: colors.cardForeground,
-      backgroundColor: colors.background,
+      backgroundColor: resolvedTheme === 'dark' ? '#1E293B' : '#FFFFFF', // Custom background for inputs
+      width: '100%', // Ensure inputs take full width
     },
     textArea: {
       height: 80,
@@ -592,6 +701,8 @@ export default function CalendarTab() {
       fontWeight: '500',
       color: colors.cardForeground,
       marginBottom: 8,
+      alignSelf: 'flex-start', // Left align labels even with centered modal
+      width: '100%', // Ensure labels take full width
     },
     saveButton: {
       backgroundColor: colors.primary,
@@ -599,6 +710,7 @@ export default function CalendarTab() {
       padding: 16,
       alignItems: 'center',
       marginTop: 8,
+      width: '100%', // Full width button
     },
     saveButtonText: {
       color: colors.primaryForeground,
@@ -611,8 +723,9 @@ export default function CalendarTab() {
       borderRadius: 8,
       padding: 12,
       marginBottom: 16,
-      backgroundColor: colors.background,
+      backgroundColor: resolvedTheme === 'dark' ? '#1E293B' : '#FFFFFF',
       justifyContent: 'center',
+      width: '100%', // Full width
     },
     timePickerText: {
       fontSize: 16,
@@ -725,22 +838,80 @@ export default function CalendarTab() {
   };
 
   const confirmTime = () => {
-    const timeString = `${tempTime.hour}:${tempTime.minute} ${tempTime.period}`;
+    // Validate hour and minute values before confirming
+    let hour = tempTime.hour;
+    let minute = tempTime.minute;
+    
+    // If hour is empty or invalid, set to default "12"
+    if (hour === '' || isNaN(parseInt(hour)) || parseInt(hour) < 1 || parseInt(hour) > 12) {
+      hour = '12';
+    }
+    
+    // If minute is empty or invalid, set to default "00"
+    if (minute === '' || isNaN(parseInt(minute)) || parseInt(minute) < 0 || parseInt(minute) > 59) {
+      minute = '00';
+    }
+    
+    // Ensure proper formatting with leading zeros
+    const hourFormatted = hour.padStart(2, '0');
+    const minuteFormatted = minute.padStart(2, '0');
+    
+    const timeString = `${hourFormatted}:${minuteFormatted} ${tempTime.period}`;
     setNewEvent(prev => ({ ...prev, time: timeString }));
     setShowTimePicker(false);
   };
 
   const updateTempHour = (hour: string) => {
+    // Allow empty string for initial typing
+    if (hour === '') {
+      setTempTime(prev => ({ ...prev, hour: '' }));
+      return;
+    }
+    
+    // Allow single digits to be entered
     const hourNum = parseInt(hour);
+    
+    // Validate the hour value
+    if (isNaN(hourNum)) {
+      return; // Not a number, ignore
+    }
+    
+    // Allow temporary values during typing (like single digit numbers)
+    if (hour.length === 1) {
+      setTempTime(prev => ({ ...prev, hour }));
+      return;
+    }
+    
+    // For final values, ensure they're in the 1-12 range
     if (hourNum >= 1 && hourNum <= 12) {
-      setTempTime(prev => ({ ...prev, hour: hour.padStart(2, '0') }));
+      setTempTime(prev => ({ ...prev, hour: hourNum.toString().padStart(2, '0') }));
     }
   };
 
   const updateTempMinute = (minute: string) => {
+    // Allow empty string for initial typing
+    if (minute === '') {
+      setTempTime(prev => ({ ...prev, minute: '' }));
+      return;
+    }
+    
+    // Allow single digits to be entered
     const minuteNum = parseInt(minute);
+    
+    // Validate the minute value
+    if (isNaN(minuteNum)) {
+      return; // Not a number, ignore
+    }
+    
+    // Allow temporary values during typing (like single digit numbers)
+    if (minute.length === 1) {
+      setTempTime(prev => ({ ...prev, minute }));
+      return;
+    }
+    
+    // For final values, ensure they're in the 0-59 range
     if (minuteNum >= 0 && minuteNum <= 59) {
-      setTempTime(prev => ({ ...prev, minute: minute.padStart(2, '0') }));
+      setTempTime(prev => ({ ...prev, minute: minuteNum.toString().padStart(2, '0') }));
     }
   };
 
@@ -1085,6 +1256,80 @@ export default function CalendarTab() {
                 <Text style={[styles.timePickerButtonText, styles.timePickerConfirmText]}>Confirm</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Error Modal */}
+      <Modal
+        visible={showErrorModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Error</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowErrorModal(false)}
+              >
+                <X size={24} color={colors.cardForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalIcon}>
+              <AlertCircle size={48} color={colors.destructive} />
+            </View>
+
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+
+            <TouchableOpacity
+              style={[styles.modalButton, styles.primaryButton]}
+              onPress={() => setShowErrorModal(false)}
+            >
+              <Text style={[styles.modalButtonText, { color: colors.primaryForeground }]}>
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Success</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowSuccessModal(false)}
+              >
+                <X size={24} color={colors.cardForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalIcon}>
+              <CheckCircle size={48} color={colors.primary} />
+            </View>
+
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+
+            <TouchableOpacity
+              style={[styles.modalButton, styles.primaryButton]}
+              onPress={() => setShowSuccessModal(false)}
+            >
+              <Text style={[styles.modalButtonText, { color: colors.primaryForeground }]}>
+                OK
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

@@ -127,7 +127,7 @@ export type Reminder = Database['public']['Tables']['reminders']['Row'];
 export type ChatMessage = Database['public']['Tables']['chat_messages']['Row'];
 
 export interface GeminiResponse {
-  intent: 'create_event' | 'set_reminder' | 'get_information' | 'clarify' | 'unsupported' | 'general';
+  intent: 'create_event' | 'set_reminder' | 'get_information' | 'clarify' | 'unsupported' | 'general' | 'create_reminder' | 'get_events' | 'get_reminders' | 'update_event' | 'delete_event' | 'update_reminder' | 'delete_reminder';
   entities: {
     title?: string;
     date?: string;
@@ -136,6 +136,11 @@ export interface GeminiResponse {
     relativeTime?: string;
     description?: string;
     location?: string;
+    reminderMinutes?: number;
+    limit?: string;
+    eventId?: string;
+    reminderId?: string;
+    searchQuery?: string;
   };
   confidence: number;
   responseText: string;

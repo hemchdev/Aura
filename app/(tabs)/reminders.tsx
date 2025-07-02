@@ -276,18 +276,44 @@ export default function RemindersTab() {
   };
 
   const parseAMPMTime = (timeStr: string) => {
-    // Convert "12:00 PM" format to 24-hour format
-    const [time, period] = timeStr.split(' ');
-    const [hours, minutes] = time.split(':');
-    let hour24 = parseInt(hours);
-    
-    if (period === 'AM' && hour24 === 12) {
-      hour24 = 0;
-    } else if (period === 'PM' && hour24 !== 12) {
-      hour24 += 12;
+    try {
+      // Convert "12:00 PM" format to 24-hour format
+      const parts = timeStr.split(' ');
+      
+      // Default values in case parsing fails
+      let hour24 = 12;
+      let minutes = 0;
+      
+      if (parts.length >= 2) {
+        const time = parts[0];
+        const period = parts[1];
+        
+        if (time && time.includes(':')) {
+          const [hours, mins] = time.split(':');
+          
+          if (hours && !isNaN(parseInt(hours))) {
+            hour24 = parseInt(hours);
+          }
+          
+          if (mins && !isNaN(parseInt(mins))) {
+            minutes = parseInt(mins);
+          }
+          
+          // Convert to 24-hour format
+          if (period === 'AM' && hour24 === 12) {
+            hour24 = 0;
+          } else if (period === 'PM' && hour24 !== 12) {
+            hour24 += 12;
+          }
+        }
+      }
+      
+      return { hours: hour24, minutes };
+    } catch (error) {
+      console.error('Error parsing time:', error);
+      // Return default values if parsing fails
+      return { hours: 12, minutes: 0 };
     }
-    
-    return { hours: hour24, minutes: parseInt(minutes) };
   };
 
   const openDatePicker = () => {
@@ -304,22 +330,80 @@ export default function RemindersTab() {
   };
 
   const confirmTime = () => {
-    const timeString = `${tempTime.hour}:${tempTime.minute} ${tempTime.period}`;
+    // Validate hour and minute values before confirming
+    let hour = tempTime.hour;
+    let minute = tempTime.minute;
+    
+    // If hour is empty or invalid, set to default "12"
+    if (hour === '' || isNaN(parseInt(hour)) || parseInt(hour) < 1 || parseInt(hour) > 12) {
+      hour = '12';
+    }
+    
+    // If minute is empty or invalid, set to default "00"
+    if (minute === '' || isNaN(parseInt(minute)) || parseInt(minute) < 0 || parseInt(minute) > 59) {
+      minute = '00';
+    }
+    
+    // Ensure proper formatting with leading zeros
+    const hourFormatted = hour.padStart(2, '0');
+    const minuteFormatted = minute.padStart(2, '0');
+    
+    const timeString = `${hourFormatted}:${minuteFormatted} ${tempTime.period}`;
     setNewReminder(prev => ({ ...prev, time: timeString }));
     setShowTimePicker(false);
   };
 
   const updateTempHour = (hour: string) => {
+    // Allow empty string for initial typing
+    if (hour === '') {
+      setTempTime(prev => ({ ...prev, hour: '' }));
+      return;
+    }
+    
+    // Allow single digits to be entered
     const hourNum = parseInt(hour);
+    
+    // Validate the hour value
+    if (isNaN(hourNum)) {
+      return; // Not a number, ignore
+    }
+    
+    // Allow temporary values during typing (like single digit numbers)
+    if (hour.length === 1) {
+      setTempTime(prev => ({ ...prev, hour }));
+      return;
+    }
+    
+    // For final values, ensure they're in the 1-12 range
     if (hourNum >= 1 && hourNum <= 12) {
-      setTempTime(prev => ({ ...prev, hour: hour.padStart(2, '0') }));
+      setTempTime(prev => ({ ...prev, hour: hourNum.toString().padStart(2, '0') }));
     }
   };
 
   const updateTempMinute = (minute: string) => {
+    // Allow empty string for initial typing
+    if (minute === '') {
+      setTempTime(prev => ({ ...prev, minute: '' }));
+      return;
+    }
+    
+    // Allow single digits to be entered
     const minuteNum = parseInt(minute);
+    
+    // Validate the minute value
+    if (isNaN(minuteNum)) {
+      return; // Not a number, ignore
+    }
+    
+    // Allow temporary values during typing (like single digit numbers)
+    if (minute.length === 1) {
+      setTempTime(prev => ({ ...prev, minute }));
+      return;
+    }
+    
+    // For final values, ensure they're in the 0-59 range
     if (minuteNum >= 0 && minuteNum <= 59) {
-      setTempTime(prev => ({ ...prev, minute: minute.padStart(2, '0') }));
+      setTempTime(prev => ({ ...prev, minute: minuteNum.toString().padStart(2, '0') }));
     }
   };
 
