@@ -19,7 +19,20 @@
       "package": "com.pp.aura",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png"
-      }
+      },
+      "versionCode": 1,
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 34,
+      "buildToolsVersion": "34.0.0",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -29,7 +42,42 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#8B5CF6"
+        }
+      ],
+      [
+        "@react-native-voice/voice",
+        {
+          "microphonePermission": "This app uses the microphone to enable voice commands and speech recognition.",
+          "speechRecognitionPermission": "This app uses speech recognition to process voice commands."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "buildToolsVersion": "34.0.0",
+            "useAndroidX": true,
+            "enableJetifier": true,
+            "enableR8": true,
+            "enableProguardInReleaseBuilds": true,
+            "packagingOptions": {
+              "pickFirst": [
+                "**/libc++_shared.so",
+                "**/libjsc.so"
+              ]
+            }
+          }
+        }
+      ],
+      "./plugins/withAndroidManifestFix.js"
     ],
     "experiments": {
       "typedRoutes": true
@@ -42,4 +90,5 @@
     },
     "owner": "hemanthtrail1"
   }
+
 }
