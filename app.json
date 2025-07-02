@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Aura",
-    "slug": "aura",
+    "slug": "auraai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -10,10 +10,13 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourname.aura"
+      "bundleIdentifier": "com.estuate.aura",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.yourname.aura",
+      "package": "com.estuate.aura",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png"
       }
@@ -34,7 +37,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "fb23c82b-b598-47c0-8f7a-f18b4a486e48"
+        "projectId": "37c6d588-b904-4b2c-9242-ae5e9159f03e"
       }
     },
     "owner": "hemanthsaich"
