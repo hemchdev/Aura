@@ -1952,7 +1952,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-navigation/bottom-tabs@npm:^7.3.10, @react-navigation/bottom-tabs@npm:^7.4.2":
+"@react-navigation/bottom-tabs@npm:^7.3.10":
   version: 7.4.2
   resolution: "@react-navigation/bottom-tabs@npm:7.4.2"
   dependencies:
@@ -2021,7 +2021,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-navigation/native@npm:^7.1.14, @react-navigation/native@npm:^7.1.6":
+"@react-navigation/native@npm:^7.1.6":
   version: 7.1.14
   resolution: "@react-navigation/native@npm:7.1.14"
   dependencies:
@@ -2550,8 +2550,8 @@ __metadata:
     "@expo/vector-icons": "npm:^14.1.0"
     "@lucide/lab": "npm:^0.1.2"
     "@react-native-async-storage/async-storage": "npm:2.1.2"
-    "@react-navigation/bottom-tabs": "npm:^7.4.2"
-    "@react-navigation/native": "npm:^7.1.14"
+    "@react-navigation/bottom-tabs": "npm:^7.3.10"
+    "@react-navigation/native": "npm:^7.1.6"
     "@supabase/supabase-js": "npm:^2.50.2"
     "@types/babel__core": "npm:^7"
     "@types/react": "npm:~19.0.10"

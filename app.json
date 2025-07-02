@@ -10,13 +10,13 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.estuate.aura",
+      "bundleIdentifier": "com.pp.aura",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.estuate.aura",
+      "package": "com.pp.aura",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png"
       }
