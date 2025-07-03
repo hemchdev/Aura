@@ -15,5 +15,5 @@ local.properties
 # Bundle artifacts
 *.jsbundle
 
-android/gradle.properties
-android/app/my-upload-key.keystore
+# android/gradle.properties
+# android/app/my-upload-key.keystore
