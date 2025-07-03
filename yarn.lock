@@ -1208,6 +1208,28 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@expo/config-plugins@npm:^10.1.0":
+  version: 10.1.0
+  resolution: "@expo/config-plugins@npm:10.1.0"
+  dependencies:
+    "@expo/config-types": "npm:^53.0.4"
+    "@expo/json-file": "npm:~9.1.4"
+    "@expo/plist": "npm:^0.3.4"
+    "@expo/sdk-runtime-versions": "npm:^1.0.0"
+    chalk: "npm:^4.1.2"
+    debug: "npm:^4.3.5"
+    getenv: "npm:^2.0.0"
+    glob: "npm:^10.4.2"
+    resolve-from: "npm:^5.0.0"
+    semver: "npm:^7.5.4"
+    slash: "npm:^3.0.0"
+    slugify: "npm:^1.6.6"
+    xcode: "npm:^3.0.1"
+    xml2js: "npm:0.6.0"
+  checksum: 10c0/a30995c3fe1b09403f08a0581d7d95fbe1f01469f266b3ff92e4dbeded1b91f2745355f63d977dff60fdf90e6cb8db9a8fe1580ef979411b7b996bf0503c070d
+  languageName: node
+  linkType: hard
+
 "@expo/config-plugins@npm:^2.0.0":
   version: 2.0.4
   resolution: "@expo/config-plugins@npm:2.0.4"
@@ -2587,6 +2609,7 @@ __metadata:
   resolution: "aura-personal-assistant@workspace:."
   dependencies:
     "@babel/core": "npm:^7.27.7"
+    "@expo/config-plugins": "npm:^10.1.0"
     "@expo/vector-icons": "npm:^14.1.0"
     "@lucide/lab": "npm:^0.1.2"
     "@react-native-async-storage/async-storage": "npm:2.1.2"

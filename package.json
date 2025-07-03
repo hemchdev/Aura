@@ -53,9 +53,18 @@
   },
   "devDependencies": {
     "@babel/core": "^7.27.7",
+    "@expo/config-plugins": "^10.1.0",
     "@types/babel__core": "^7",
     "@types/react": "~19.0.10",
     "typescript": "~5.8.3"
+  },
+  "resolutions": {
+    "com.android.support:support-compat": "androidx.core:core:1.13.1",
+    "com.android.support:support-annotations": "androidx.annotation:annotation:1.7.1",
+    "com.android.support:support-v4": "androidx.legacy:legacy-support-v4:1.0.0",
+    "com.android.support:animated-vector-drawable": "androidx.vectordrawable:vectordrawable-animated:1.1.0",
+    "com.android.support:support-vector-drawable": "androidx.vectordrawable:vectordrawable:1.1.0",
+    "com.android.support:versionedparcelable": "androidx.versionedparcelable:versionedparcelable:1.1.1"
   },
   "packageManager": "yarn@4.9.2"
 }

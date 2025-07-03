@@ -33,7 +33,9 @@
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.USE_EXACT_ALARM"
       ],
-      "edgeToEdgeEnabled": false
+      "edgeToEdgeEnabled": false,
+      "blockedPermissions": [],
+      "allowBackup": true
     },
     "web": {
       "bundler": "metro",
@@ -67,17 +69,15 @@
             "buildToolsVersion": "35.0.0",
             "useAndroidX": true,
             "enableJetifier": true,
-            "enableR8": true,
-            "enableProguardInReleaseBuilds": true,
+            "enableR8": false,
+            "enableProguardInReleaseBuilds": false,
             "packagingOptions": {
               "pickFirst": [
                 "**/libc++_shared.so",
                 "**/libjsc.so"
               ]
             },
-            "manifestPlaceholders": {
-              "appComponentFactory": "androidx.core.app.CoreComponentFactory"
-            }
+            "minSdkVersion": 24
           }
         }
       ]
