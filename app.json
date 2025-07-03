@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Aura",
-    "slug": "aurav2",
+    "slug": "auraai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -88,9 +88,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "aed4105b-d59f-4268-b952-9a44275db34a"
+        "projectId": "de9e7775-8c25-4c10-aa16-d728701c997d"
       }
     },
-    "owner": "hemanthsaich"
+    "owner": "trailapp1"
   }
 }
