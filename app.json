@@ -21,9 +21,9 @@
         "foregroundImage": "./assets/images/icon.png"
       },
       "versionCode": 1,
-      "compileSdkVersion": 34,
+      "compileSdkVersion": 35,
       "targetSdkVersion": 34,
-      "buildToolsVersion": "34.0.0",
+      "buildToolsVersion": "35.0.0",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -62,9 +62,9 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 34,
+            "compileSdkVersion": 35,
             "targetSdkVersion": 34,
-            "buildToolsVersion": "34.0.0",
+            "buildToolsVersion": "35.0.0",
             "useAndroidX": true,
             "enableJetifier": true,
             "enableR8": true,
@@ -93,5 +93,4 @@
     },
     "owner": "hemanthtrail1"
   }
-
 }
