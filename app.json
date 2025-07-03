@@ -32,7 +32,8 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.USE_EXACT_ALARM"
-      ]
+      ],
+      "edgeToEdgeEnabled": false
     },
     "web": {
       "bundler": "metro",
@@ -73,11 +74,13 @@
                 "**/libc++_shared.so",
                 "**/libjsc.so"
               ]
+            },
+            "manifestPlaceholders": {
+              "appComponentFactory": "androidx.core.app.CoreComponentFactory"
             }
           }
         }
-      ],
-      "./plugins/withAndroidManifestFix.js"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
