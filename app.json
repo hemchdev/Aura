@@ -21,9 +21,6 @@
         "foregroundImage": "./assets/images/icon.png"
       },
       "versionCode": 1,
-      "compileSdkVersion": 35,
-      "targetSdkVersion": 34,
-      "buildToolsVersion": "35.0.0",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -60,27 +57,7 @@
           "speechRecognitionPermission": "This app uses speech recognition to process voice commands."
         }
       ],
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 34,
-            "buildToolsVersion": "35.0.0",
-            "useAndroidX": true,
-            "enableJetifier": true,
-            "enableR8": false,
-            "enableProguardInReleaseBuilds": false,
-            "packagingOptions": {
-              "pickFirst": [
-                "**/libc++_shared.so",
-                "**/libjsc.so"
-              ]
-            },
-            "minSdkVersion": 24
-          }
-        }
-      ]
+      "./plugins/withAndroidManifestFix.js"
     ],
     "experiments": {
       "typedRoutes": true

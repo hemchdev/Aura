@@ -18,7 +18,7 @@
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/native": "^7.1.6",
     "@supabase/supabase-js": "^2.50.2",
-    "expo": "53.0.15",
+    "expo": "53.0.16",
     "expo-blur": "^14.1.5",
     "expo-build-properties": "^0.14.8",
     "expo-camera": "~16.1.10",
@@ -39,7 +39,7 @@
     "lucide-react-native": "^0.525.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "react-native": "0.79.4",
+    "react-native": "0.79.5",
     "react-native-calendars": "^1.1313.0",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-reanimated": "~3.17.4",
@@ -53,12 +53,20 @@
   },
   "devDependencies": {
     "@babel/core": "^7.27.7",
-    "@expo/config-plugins": "^10.1.0",
+    "@expo/config-plugins": "~10.1.1",
     "@types/babel__core": "^7",
     "@types/react": "~19.0.10",
     "typescript": "~5.8.3"
   },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "listUnknownPackages": false
+      }
+    }
+  },
   "resolutions": {
+    "@expo/config-plugins": "~10.1.1",
     "com.android.support:support-compat": "androidx.core:core:1.13.1",
     "com.android.support:support-annotations": "androidx.annotation:annotation:1.7.1",
     "com.android.support:support-v4": "androidx.legacy:legacy-support-v4:1.0.0",

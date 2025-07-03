@@ -1,0 +1,58 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+  repositories {
+    google()
+    mavenCentral()
+  }
+  dependencies {
+    classpath('com.android.tools.build:gradle')
+    classpath('com.facebook.react:react-native-gradle-plugin')
+    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+  }
+}
+
+def reactNativeAndroidDir = new File(
+  providers.exec {
+    workingDir(rootDir)
+    commandLine("node", "--print", "require.resolve('react-native/package.json')")
+  }.standardOutput.asText.get().trim(),
+  "../android"
+)
+
+allprojects {
+  repositories {
+    maven {
+      // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
+      url(reactNativeAndroidDir)
+    }
+
+    google()
+    mavenCentral()
+    maven { url 'https://www.jitpack.io' }
+  }
+}
+
+apply plugin: "expo-root-project"
+apply plugin: "com.facebook.react.rootproject"
+
+allprojects {
+    configurations.all {
+        exclude group: 'com.android.support', module: 'support-compat'
+        exclude group: 'com.android.support', module: 'support-annotations'
+        exclude group: 'com.android.support', module: 'support-v4'
+        exclude group: 'com.android.support', module: 'animated-vector-drawable'
+        exclude group: 'com.android.support', module: 'support-vector-drawable'
+        exclude group: 'com.android.support', module: 'versionedparcelable'
+        
+        resolutionStrategy {
+            force 'androidx.core:core:1.13.1'
+            force 'androidx.appcompat:appcompat:1.6.1'
+            force 'androidx.activity:activity:1.8.0'
+            force 'androidx.fragment:fragment:1.6.2'
+            force 'androidx.vectordrawable:vectordrawable:1.1.0'
+            force 'androidx.vectordrawable:vectordrawable-animated:1.1.0'
+            force 'androidx.versionedparcelable:versionedparcelable:1.1.1'
+        }
+    }
+}
