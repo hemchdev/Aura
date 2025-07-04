@@ -32,6 +32,12 @@ const withAndroidManifestFix = (config) => {
     androidManifest.manifest.application[0].$['android:appComponentFactory'] = 'androidx.core.app.CoreComponentFactory';
     androidManifest.manifest.application[0].$['tools:replace'] = 'android:appComponentFactory';
     
+    // Add hardwareAccelerated for better performance
+    androidManifest.manifest.application[0].$['android:hardwareAccelerated'] = 'true';
+    
+    // Add largeHeap for better memory management
+    androidManifest.manifest.application[0].$['android:largeHeap'] = 'true';
+    
     return config;
   });
 
