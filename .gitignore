@@ -35,5 +35,5 @@ yarn-error.*
 *.tsbuildinfo
 
 # Uncomment if using prebuild/CNG workflow
-/android
+# /android
 # /ios 
