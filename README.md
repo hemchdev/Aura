@@ -735,7 +735,7 @@ npm uninstall <unused-package>
 
 If you're still experiencing issues:
 
-1. **Check existing issues**: [GitHub Issues](https://github.com/your-repo/aura/issues)
+1. **Check existing issues**: [GitHub Issues](https://github.com/hemchdev/aura/issues)
 2. **Expo documentation**: [docs.expo.dev](https://docs.expo.dev/)
 3. **React Native troubleshooting**: [reactnative.dev/docs/troubleshooting](https://reactnative.dev/docs/troubleshooting)
 4. **Community support**: [Expo Discord](https://chat.expo.dev/) or [Stack Overflow](https://stackoverflow.com/questions/tagged/expo)
@@ -761,249 +761,38 @@ If you're still experiencing issues:
 - **Database Queries**: < 500ms
 - **Notification Delivery**: < 5 seconds
 
-## 🤝 Contributing
-
-We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, your help makes Aura better for everyone.
-
-### 🚀 Quick Start for Contributors
-
-1. **Fork the repository** on GitHub
-2. **Clone your fork** locally:
-   ```bash
-   git clone https://github.com/YOUR-USERNAME/aura.git
-   cd aura
-   ```
-3. **Set up development environment** following the [Quick Start](#-quick-start) guide
-4. **Create a feature branch**:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-5. **Make your changes** and test thoroughly
-6. **Commit with conventional commits**:
-   ```bash
-   git commit -m "feat: add voice command for weather"
-   ```
-7. **Push to your fork** and create a pull request
-
-### 📝 Development Guidelines
-
-#### Code Style & Standards
-- **TypeScript**: Strict mode enabled, no `any` types
-- **ESLint**: Follow Expo recommended rules
-- **Prettier**: Consistent code formatting
-- **File naming**: Use kebab-case for files, PascalCase for components
-- **Import order**: External libraries → Internal modules → Relative imports
-
-#### Commit Message Convention
-Use [Conventional Commits](https://conventionalcommits.org/) format:
-
-```
-<type>[optional scope]: <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, no logic changes)
-- `refactor`: Code refactoring
-- `test`: Adding or updating tests
-- `chore`: Build process or auxiliary tool changes
-
-**Examples:**
-```bash
-feat(auth): add biometric authentication
-fix(calendar): resolve timezone display issue
-docs(readme): update installation instructions
-```
-
-### 🐛 Bug Reports
-
-When reporting bugs, please include:
-
-1. **Clear description** of the issue
-2. **Steps to reproduce** the problem
-3. **Expected vs actual behavior**
-4. **Environment details**:
-   - Device/OS version
-   - App version
-   - Node.js and Expo CLI versions
-5. **Screenshots or videos** (if applicable)
-6. **Error logs** from console/crash reports
-
-Use the bug report template:
-```markdown
-## Bug Description
-[Clear description of the bug]
-
-## Steps to Reproduce
-1. Step one
-2. Step two
-3. Step three
-
-## Expected Behavior
-[What should happen]
-
-## Actual Behavior
-[What actually happens]
-
-## Environment
-- OS: [iOS 16.1, Android 13, Windows 11]
-- Device: [iPhone 14, Pixel 7, etc.]
-- App Version: [1.0.0]
-- Expo SDK: [53.0.17]
-
-## Additional Context
-[Any other relevant information]
-```
-
-### 💡 Feature Requests
-
-We love hearing about new feature ideas! Please:
-
-1. **Check existing issues** to avoid duplicates
-2. **Describe the problem** you're trying to solve
-3. **Propose a solution** with detailed explanation
-4. **Consider alternatives** you've thought about
-5. **Provide use cases** and examples
-
-### 🔍 Code Review Process
-
-All contributions go through code review:
-
-1. **Automated checks** must pass (CI/CD pipeline)
-2. **At least one maintainer** reviews the code
-3. **Address feedback** and make requested changes
-4. **Maintainer approval** required before merge
-
-**What we look for:**
-- Code quality and maintainability
-- Adherence to coding standards
-- Proper error handling
-- Performance considerations
-- Security implications
-- Test coverage
-- Documentation updates
-
-### 🏗️ Development Areas
-
-Here are some areas where we especially welcome contributions:
-
-#### 🚧 High Priority
-- [ ] **Accessibility improvements** (screen reader support, keyboard navigation)
-- [ ] **Performance optimizations** (faster loading, reduced memory usage)
-- [ ] **Test coverage** (unit tests, integration tests)
-- [ ] **Documentation** (code comments, user guides, tutorials)
-
-#### 🛠️ Medium Priority
-- [ ] **New AI features** (natural language improvements, new commands)
-- [ ] **Calendar integrations** (Google Calendar, Outlook, iCal)
-- [ ] **Notification enhancements** (smart timing, priority management)
-- [ ] **UI/UX improvements** (animations, micro-interactions)
-
-#### 🔮 Future Enhancements
-- [ ] **Multi-language support** (internationalization)
-- [ ] **Team/shared calendars** (collaboration features)
-- [ ] **Voice customization** (different voices, accents)
-- [ ] **Advanced AI features** (context awareness, learning from habits)
-
-### 🎯 Getting Started with Contributions
-
-#### Good First Issues
-Look for issues labeled `good first issue` - these are perfect for new contributors:
-- Documentation improvements
-- UI refinements
-- Small bug fixes
-- Adding tests
-
-#### Setting Up Development Environment
-1. Follow the [Quick Start](#-quick-start) guide
-2. Install development tools:
-   ```bash
-   # Install recommended VS Code extensions
-   code --install-extension ms-vscode.vscode-typescript-next
-   code --install-extension bradlc.vscode-tailwindcss
-   code --install-extension ms-vscode.vscode-react-native
-   ```
-3. Set up pre-commit hooks:
-   ```bash
-   npx husky install
-   npx husky add .husky/pre-commit "npm run lint"
-   ```
-
-### 📚 Resources for Contributors
+### 📚 Resources
 
 - **React Native Docs**: [reactnative.dev](https://reactnative.dev/)
 - **Expo Docs**: [docs.expo.dev](https://docs.expo.dev/)
 - **TypeScript Handbook**: [typescriptlang.org](https://www.typescriptlang.org/docs/)
 - **Supabase Docs**: [supabase.com/docs](https://supabase.com/docs)
-- **Project Discussions**: [GitHub Discussions](https://github.com/your-repo/aura/discussions)
 
-### 🏆 Recognition
-
-Contributors are recognized in:
-- **README.md** contributors section
-- **Release notes** for significant contributions
-- **GitHub contributors** page
-- **Special mentions** in project announcements
 
 ### 📞 Getting Help
 
 Need help with contributing?
-- 💬 Join our [Discord community](https://discord.gg/aura-dev)
-- 🐛 Open a [discussion](https://github.com/your-repo/aura/discussions)
-- 📧 Email maintainers: dev@aura-app.com
-- 📖 Check our [development wiki](https://github.com/your-repo/aura/wiki)
+- 🐛 Open a [discussion](https://github.com/hemchdev/aura/discussions)
 
 Thank you for making Aura better! 🙏
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support & Documentation
 
 ### 📖 Documentation
 - **README**: You're reading it! Complete setup and usage guide
-- **API Reference**: [GitHub Wiki](https://github.com/your-repo/aura/wiki/API-Reference)
-- **Architecture Guide**: [ARCHITECTURE.md](./docs/ARCHITECTURE.md)
-- **Troubleshooting**: [TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)
-- **Feature Guides**:
-  - [Calendar Features](./CALENDAR_FEATURES.md)
-  - [Notification System](./NOTIFICATION_FEATURES.md)
-  - [Android Crash Fix Guide](./ANDROID_CRASH_FIX.md)
-  - [Sign-up Debug Guide](./SIGNUP_NAME_DEBUG.md)
+
 
 ### 🐛 Issues & Bug Reports
-- **GitHub Issues**: [Report bugs or request features](https://github.com/your-repo/aura/issues)
-- **Bug Report Template**: Use our template for faster resolution
-- **Feature Requests**: [Discussions](https://github.com/your-repo/aura/discussions)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/hemchdev/aura/issues)
+- **Feature Requests**: [Discussions](https://github.com/hemchdev/aura/discussions)
 
 ### 💬 Community Support
-- **Discord Server**: [Join our community](https://discord.gg/aura-dev)
-- **GitHub Discussions**: [Community Q&A](https://github.com/your-repo/aura/discussions)
-- **Stack Overflow**: Tag questions with `aura-app`
-- **Reddit**: [r/AuraApp](https://reddit.com/r/AuraApp)
+- **GitHub Discussions**: [Community Q&A](https://github.com/hemchdev/aura/discussions)
 
-### 📧 Direct Contact
-- **General Support**: support@aura-app.com
-- **Technical Issues**: tech@aura-app.com
-- **Business Inquiries**: business@aura-app.com
-- **Security Issues**: security@aura-app.com (PGP key available)
-
-### 🚀 Enterprise Support
-For businesses and organizations:
-- **Priority support** with SLA guarantees
-- **Custom feature development**
-- **On-premise deployment** options
-- **Integration assistance**
-- **Training and consulting**
-
-Contact: enterprise@aura-app.com
 
 ## 🙏 Acknowledgments
 
@@ -1027,13 +816,6 @@ Contact: enterprise@aura-app.com
 - **[Google Fonts](https://fonts.google.com/)**: Open-source font families
 - **[Material Design](https://m3.material.io/)**: Design system inspiration
 
-### 🌟 Community & Support
-- **React Native Community**: For the amazing ecosystem and contributions
-- **Expo Team**: For making React Native development accessible and enjoyable
-- **Open Source Contributors**: All the maintainers of our dependencies
-- **Beta Testers**: Early users who provided valuable feedback
-- **Discord Community**: Active community members helping each other
-
 ### 📚 Learning Resources
 - **[React Native Documentation](https://reactnative.dev/docs/getting-started)**
 - **[Expo Documentation](https://docs.expo.dev/)**
@@ -1041,35 +823,7 @@ Contact: enterprise@aura-app.com
 - **[React Navigation Docs](https://reactnavigation.org/docs/getting-started)**
 - **[TypeScript Handbook](https://www.typescriptlang.org/docs/)**
 
-### 🏆 Special Thanks
-- **Early Adopters**: Users who trusted us from the beginning
-- **Bug Reporters**: Community members who help improve the app
-- **Feature Requesters**: Users who inspire new functionality
-- **Code Contributors**: Developers who submit pull requests
-- **Documentation Writers**: Contributors who improve our guides
-
-### 💼 Business Support
-- **Microsoft**: For GitHub and development tools
-- **Google**: For Cloud Platform and AI services
-- **Vercel**: For hosting our documentation
-- **JetBrains**: For development IDE support
-
 ---
-
-<div align="center">
-
-**Built with ❤️ by the Aura Team and Community**
-
-[![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=flat&logo=github)](https://github.com/your-repo/aura)
-[![Discord](https://img.shields.io/badge/Discord-Community-7289da?style=flat&logo=discord&logoColor=white)](https://discord.gg/aura-dev)
-[![Twitter](https://img.shields.io/badge/Twitter-Updates-1da1f2?style=flat&logo=twitter&logoColor=white)](https://twitter.com/aura_app)
-[![Website](https://img.shields.io/badge/Website-aura--app.com-green?style=flat&logo=safari&logoColor=white)](https://aura-app.com)
-
-*Making AI assistants more accessible and useful for daily life.*
-
-**Last updated: January 2025 | Version 1.0.0**
-
-</div>
 
 ## 🏛️ Architecture
 
@@ -1150,7 +904,7 @@ interface ThemeState {
 ## 🔮 Roadmap
 
 ### 🚀 Current Version (v1.0.0)
-- ✅ Voice-controlled AI assistant
+- ✅ AI assistant
 - ✅ Calendar and reminder management
 - ✅ Cross-platform support (Android, iOS, Web)
 - ✅ Dark/light theme switching
@@ -1158,9 +912,9 @@ interface ThemeState {
 - ✅ Smart notifications
 - ✅ Natural language processing
 
-### 🎯 Next Release (v1.1.0) - Q2 2025
+### 🎯 Next Release (v1.1.0) 
 - [ ] **Enhanced Voice Commands**
-  - Multi-language support (Spanish, French, German)
+  - Multi-language support (Spanish, French, German, Local)
   - Voice training for better accuracy
   - Custom wake word support
   
@@ -1194,4 +948,3 @@ interface ThemeState {
   - SSO authentication
   - Admin dashboard
   - Analytics and reporting
-
