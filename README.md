@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Aura Logo](./assets/images/icon.png)
+![Aura Logo](./assets/images/Aura.png)
 
 *An intelligent, voice-controlled personal assistant app*
 
