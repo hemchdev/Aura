@@ -11,7 +11,7 @@ interface AuthState {
   session: Session | null;
   loading: boolean;
   initialized: boolean;
-  sendOTP: (email: string, shouldCreateUser?: boolean) => Promise<void>;
+  sendOTP: (email: string, shouldCreateUser?: boolean, name?: string) => Promise<void>;
   verifyOTP: (email: string, token: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
@@ -121,16 +121,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  sendOTP: async (email: string, shouldCreateUser: boolean = true) => {
+  sendOTP: async (email: string, shouldCreateUser: boolean = true, name?: string) => {
     set({ loading: true });
     try {
+      const options: any = {
+        shouldCreateUser,
+        emailRedirectTo: 'aura://auth/confirm',
+      };
+      
+      // If name is provided and we're creating a user, include it in metadata
+      if (shouldCreateUser && name && name.trim()) {
+        options.data = {
+          name: name.trim(),
+          full_name: name.trim()
+        };
+      }
+      
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
-        options: {
-          shouldCreateUser,
-          emailRedirectTo: 'aura://auth/confirm',
-        },
+        options,
       });
+      
       if (error) throw error;
     } catch (error: any) {
       throw new Error(error.message || 'Failed to send OTP');
@@ -152,6 +163,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       // Always ensure profile exists for the user
       if (data.user && data.session) {
+        // First, update local state with user and session
+        set({ 
+          user: data.user, 
+          session: data.session
+        });
+
         // Check if profile exists
         const { data: existingProfile } = await supabase
           .from('profiles')
@@ -162,13 +179,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         let profileData = existingProfile;
         
         if (!existingProfile) {
-          // Create profile with name if provided, otherwise use email
+          // Create profile with name if provided, otherwise use email prefix
+          const profileName = name && name.trim() ? name.trim() : data.user.email!.split('@')[0];
+          
+          console.log('Creating new profile with name:', profileName);
+          
           const { data: newProfile, error: profileError } = await supabase
             .from('profiles')
             .insert({
               id: data.user.id,
               email: data.user.email!,
-              name: name || data.user.email!.split('@')[0], // Use name or fallback to email prefix
+              name: profileName,
               settings: {
                 theme: 'system',
                 notifications: true,
@@ -184,17 +205,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             throw new Error('Failed to create user profile');
           }
           
+          console.log('Profile created successfully:', newProfile);
           profileData = newProfile;
+        } else if (name && name.trim() && existingProfile.name !== name.trim()) {
+          // If profile exists but name is different, update it
+          console.log('Updating existing profile name from:', existingProfile.name, 'to:', name.trim());
+          
+          const { data: updatedProfile, error: updateError } = await supabase
+            .from('profiles')
+            .update({ name: name.trim() })
+            .eq('id', data.user.id)
+            .select()
+            .single();
+          
+          if (updateError) {
+            console.error('Profile update error:', updateError);
+          } else {
+            console.log('Profile updated successfully:', updatedProfile);
+            profileData = updatedProfile;
+          }
         }
         
-        // Update local state immediately
-        set({ 
-          user: data.user, 
-          session: data.session, 
-          profile: profileData 
-        });
+        // Update local state with profile
+        set({ profile: profileData });
+        
+        console.log('Final profile state:', profileData);
       }
     } catch (error: any) {
+      console.error('verifyOTP error:', error);
       throw new Error(error.message || 'Failed to verify OTP');
     } finally {
       set({ loading: false });
@@ -299,12 +337,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (fetchError && fetchError.code === 'PGRST116') {
         // Profile doesn't exist, create it
+        // Try to extract a proper name from user metadata first
+        const fallbackName = user.user_metadata?.name || 
+                            user.user_metadata?.full_name || 
+                            user.email!.split('@')[0];
+        
+        console.log('Creating profile with fallback name:', fallbackName);
+        
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert({
             id: user.id,
             email: user.email!,
-            name: user.email!.split('@')[0], // Use email prefix as fallback name
+            name: fallbackName,
             settings: {
               theme: 'system',
               notifications: true,
@@ -316,18 +361,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           .single();
 
         if (createError) {
+          console.error('Profile creation error in ensureProfile:', createError);
           throw createError;
         }
+        
+        console.log('Profile created in ensureProfile:', newProfile);
         set({ profile: newProfile });
         return newProfile;
       } else if (fetchError) {
         throw fetchError;
       } else {
         // Profile exists, update local state
+        console.log('Profile found in ensureProfile:', existingProfile);
         set({ profile: existingProfile });
         return existingProfile;
       }
     } catch (error: any) {
+      console.error('ensureProfile error:', error);
       throw new Error(error.message || 'Failed to ensure profile exists');
     }
   },

@@ -63,7 +63,7 @@ export default function SignUp() {
     }
 
     try {
-      await sendOTP(email, true); // shouldCreateUser = true for sign up
+      await sendOTP(email, true, name); // Pass name to sendOTP
       setOtpSent(true);
       showInfoModal(
         'Verification Code Sent', 
