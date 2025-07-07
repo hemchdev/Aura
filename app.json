@@ -57,6 +57,22 @@
           "speechRecognitionPermission": "This app uses speech recognition to process voice commands."
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "packagingOptions": {
+              "pickFirst": [
+                "**/libc++_shared.so",
+                "**/libjsc.so"
+              ],
+              "exclude": [
+                "**/META-INF/androidx.localbroadcastmanager_localbroadcastmanager.version"
+              ]
+            }
+          }
+        }
+      ],
       "./plugins/withAndroidManifestFix.js"
     ],
     "experiments": {
@@ -65,9 +81,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4af47213-d637-4561-9102-457910256c7f"
+        "projectId": "d9636115-c728-4fed-9aad-c5417f8ef898"
       }
     },
-    "owner": "testuseraura"
+    "owner": "trailapp2"
   }
 }
