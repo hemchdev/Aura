@@ -1353,13 +1353,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/config-types@npm:^53.0.4":
-  version: 53.0.4
-  resolution: "@expo/config-types@npm:53.0.4"
-  checksum: 10c0/e50e584af3bc0cf885333d84b10032aa8a0c3f3b254ed4aaeb3aa3e02dea74ba694f5cb7cf49fe7b7b924cecf337be09e0e5db24cf5802aca51eaae51054f1c4
-  languageName: node
-  linkType: hard
-
 "@expo/config-types@npm:^53.0.5":
   version: 53.0.5
   resolution: "@expo/config-types@npm:53.0.5"
@@ -1388,27 +1381,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/config@npm:~11.0.9":
-  version: 11.0.11
-  resolution: "@expo/config@npm:11.0.11"
-  dependencies:
-    "@babel/code-frame": "npm:~7.10.4"
-    "@expo/config-plugins": "npm:~10.0.3"
-    "@expo/config-types": "npm:^53.0.4"
-    "@expo/json-file": "npm:^9.1.4"
-    deepmerge: "npm:^4.3.1"
-    getenv: "npm:^2.0.0"
-    glob: "npm:^10.4.2"
-    require-from-string: "npm:^2.0.2"
-    resolve-from: "npm:^5.0.0"
-    resolve-workspace-root: "npm:^2.0.0"
-    semver: "npm:^7.6.0"
-    slugify: "npm:^1.3.4"
-    sucrase: "npm:3.35.0"
-  checksum: 10c0/4fd918412609ff124c75cc4d494bc6d4b20eab97f70f164f6d4979e96acd5a6c9041e51f6d7db46283d30b4a747a04ee2b33c8d13b2c89861260fc090ff7d8e2
-  languageName: node
-  linkType: hard
-
 "@expo/devcert@npm:^1.1.2":
   version: 1.2.0
   resolution: "@expo/devcert@npm:1.2.0"
@@ -1417,19 +1389,6 @@ __metadata:
     debug: "npm:^3.1.0"
     glob: "npm:^10.4.2"
   checksum: 10c0/3d6a1ce44918c2e5be3bb89d25cfc80551623e4fe5004d4eb29d1edc8edd676258345e64d2aefe56188bc5d4b33e2b7e733a108b2be225af1f90ca86d7170069
-  languageName: node
-  linkType: hard
-
-"@expo/env@npm:~1.0.5":
-  version: 1.0.6
-  resolution: "@expo/env@npm:1.0.6"
-  dependencies:
-    chalk: "npm:^4.0.0"
-    debug: "npm:^4.3.4"
-    dotenv: "npm:~16.4.5"
-    dotenv-expand: "npm:~11.0.6"
-    getenv: "npm:^2.0.0"
-  checksum: 10c0/d02776e4c764e146ffa8f21c5ebd44a019bc50c3ce31a7a70772fc3ce594e67680da6d83cc218960c07343de1feec8071d22405ab07d8b06ef312873269f8773
   languageName: node
   linkType: hard
 
@@ -1468,23 +1427,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/image-utils@npm:^0.7.4":
-  version: 0.7.5
-  resolution: "@expo/image-utils@npm:0.7.5"
-  dependencies:
-    "@expo/spawn-async": "npm:^1.7.2"
-    chalk: "npm:^4.0.0"
-    getenv: "npm:^2.0.0"
-    jimp-compact: "npm:0.16.1"
-    parse-png: "npm:^2.1.0"
-    resolve-from: "npm:^5.0.0"
-    semver: "npm:^7.6.0"
-    temp-dir: "npm:~2.0.0"
-    unique-string: "npm:~2.0.0"
-  checksum: 10c0/3017561762805de037bfe017164d88fce5fc1c547d979da5b0c66aa0c43d91fc09c2b9f4617aeab4ce52fad727c74efbb5df3662203aeabfcdda7cbd278dc53e
-  languageName: node
-  linkType: hard
-
 "@expo/image-utils@npm:^0.7.6":
   version: 0.7.6
   resolution: "@expo/image-utils@npm:0.7.6"
@@ -1499,16 +1441,6 @@ __metadata:
     temp-dir: "npm:~2.0.0"
     unique-string: "npm:~2.0.0"
   checksum: 10c0/45a8ce5237fecd63a4020295b584d237a024d917ca1bf1e31568bb96703b5fd9351a6912a7ecc0fc5c38d97029f31f86e312c4646beb0207ce578289a3e2bc2d
-  languageName: node
-  linkType: hard
-
-"@expo/json-file@npm:^9.1.4":
-  version: 9.1.4
-  resolution: "@expo/json-file@npm:9.1.4"
-  dependencies:
-    "@babel/code-frame": "npm:~7.10.4"
-    json5: "npm:^2.2.3"
-  checksum: 10c0/43c68ba5316dc9b2e79a0a15fbfca60430f64181ae1d47f9627fd1f5b2f27b090a829125168290cbab8af72f0421bab941dbd855217fec4787bde921e6962a05
   languageName: node
   linkType: hard
 
@@ -3288,7 +3220,7 @@ __metadata:
     expo-haptics: "npm:^14.1.4"
     expo-linear-gradient: "npm:^14.1.5"
     expo-linking: "npm:~7.1.7"
-    expo-notifications: "npm:^0.31.3"
+    expo-notifications: "npm:0.31.4"
     expo-router: "npm:~5.1.3"
     expo-secure-store: "npm:^14.2.3"
     expo-speech: "npm:^13.1.7"
@@ -4889,12 +4821,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-application@npm:~6.1.4":
-  version: 6.1.4
-  resolution: "expo-application@npm:6.1.4"
+"expo-application@npm:~6.1.5":
+  version: 6.1.5
+  resolution: "expo-application@npm:6.1.5"
   peerDependencies:
     expo: "*"
-  checksum: 10c0/419350d8dd373b88a4d377ad93f6ff076245831f66a271305c227f906dcc81edc87d61cb6009238e900f54fc2ca531029007271ef4b0a4405202d7db52791e41
+  checksum: 10c0/c4fa0bddfc911af17055334558314d819d403efa5db22b05cffc44c91eef38e9fb57b4a5aae35378523c59847189a7ca09ad9e5370ee5a3b0f23c1c5146c8683
   languageName: node
   linkType: hard
 
@@ -4949,19 +4881,6 @@ __metadata:
     react-native-web:
       optional: true
   checksum: 10c0/a10c845a410b9f36f1f4a336369dc2fbcf8b991766e5dce60cab62a959993458fe8220161393ddc15ef6a9505cb3167db19f87fd00bf26ca8187e5dd796c4b64
-  languageName: node
-  linkType: hard
-
-"expo-constants@npm:~17.1.6":
-  version: 17.1.6
-  resolution: "expo-constants@npm:17.1.6"
-  dependencies:
-    "@expo/config": "npm:~11.0.9"
-    "@expo/env": "npm:~1.0.5"
-  peerDependencies:
-    expo: "*"
-    react-native: "*"
-  checksum: 10c0/922b919521c5b9e92b201c4d83cdae05bd9560955a97c89c2fab73afc5879204c199b2011fd2fa2d2c4e445bc6e69f1c6b6d068bdd8933c44029bc62bd3c0da8
   languageName: node
   linkType: hard
 
@@ -5069,22 +4988,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-notifications@npm:^0.31.3":
-  version: 0.31.3
-  resolution: "expo-notifications@npm:0.31.3"
+"expo-notifications@npm:0.31.4":
+  version: 0.31.4
+  resolution: "expo-notifications@npm:0.31.4"
   dependencies:
-    "@expo/image-utils": "npm:^0.7.4"
+    "@expo/image-utils": "npm:^0.7.6"
     "@ide/backoff": "npm:^1.0.0"
     abort-controller: "npm:^3.0.0"
     assert: "npm:^2.0.0"
     badgin: "npm:^1.1.5"
-    expo-application: "npm:~6.1.4"
-    expo-constants: "npm:~17.1.6"
+    expo-application: "npm:~6.1.5"
+    expo-constants: "npm:~17.1.7"
   peerDependencies:
     expo: "*"
     react: "*"
     react-native: "*"
-  checksum: 10c0/2142336b6422a711d2239608c874fb49de3d02b9c1c52e2f571a5f3b98dcf3fffdbb11c14ab032497cf4bf85af1a23f97dc952bbde14554dcada4d173a62aeb7
+  checksum: 10c0/284d49a7541afde80d2ef81dfdb89d9d7f15facd92c8bab02a6020a6d729077bf2a3cbc7d075546f0664b390fcd55a3e667eee1bb78476346db093b170a3637d
   languageName: node
   linkType: hard
 
