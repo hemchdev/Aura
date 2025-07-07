@@ -1,43 +1,4 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-  <!-- Screen support declarations -->
-  <supports-screens
-      android:smallScreens="true"
-      android:normalScreens="true"
-      android:largeScreens="true"
-      android:xlargeScreens="true"
-      android:anyDensity="true"
-      android:resizeable="true" />
-  
-  <!-- Compatible screens -->
-  <compatible-screens>
-    <!-- Small screens -->
-    <screen android:screenSize="small" android:screenDensity="ldpi" />
-    <screen android:screenSize="small" android:screenDensity="mdpi" />
-    <screen android:screenSize="small" android:screenDensity="hdpi" />
-    <screen android:screenSize="small" android:screenDensity="xhdpi" />
-    <!-- Normal screens -->
-    <screen android:screenSize="normal" android:screenDensity="ldpi" />
-    <screen android:screenSize="normal" android:screenDensity="mdpi" />
-    <screen android:screenSize="normal" android:screenDensity="hdpi" />
-    <screen android:screenSize="normal" android:screenDensity="xhdpi" />
-    <screen android:screenSize="normal" android:screenDensity="xxhdpi" />
-    <screen android:screenSize="normal" android:screenDensity="xxxhdpi" />
-    <!-- Large screens -->
-    <screen android:screenSize="large" android:screenDensity="ldpi" />
-    <screen android:screenSize="large" android:screenDensity="mdpi" />
-    <screen android:screenSize="large" android:screenDensity="hdpi" />
-    <screen android:screenSize="large" android:screenDensity="xhdpi" />
-    <screen android:screenSize="large" android:screenDensity="xxhdpi" />
-    <screen android:screenSize="large" android:screenDensity="xxxhdpi" />
-    <!-- Extra large screens -->
-    <screen android:screenSize="xlarge" android:screenDensity="ldpi" />
-    <screen android:screenSize="xlarge" android:screenDensity="mdpi" />
-    <screen android:screenSize="xlarge" android:screenDensity="hdpi" />
-    <screen android:screenSize="xlarge" android:screenDensity="xhdpi" />
-    <screen android:screenSize="xlarge" android:screenDensity="xxhdpi" />
-    <screen android:screenSize="xlarge" android:screenDensity="xxxhdpi" />
-  </compatible-screens>
-  
   <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
@@ -56,7 +17,7 @@
       <data android:scheme="https"/>
     </intent>
   </queries>
-  <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true" android:appComponentFactory="androidx.core.app.CoreComponentFactory" tools:replace="android:appComponentFactory">
+  <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true" android:appComponentFactory="androidx.core.app.CoreComponentFactory" tools:replace="android:appComponentFactory" android:hardwareAccelerated="true" android:largeHeap="true">
     <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/notification_icon_color"/>
     <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/notification_icon"/>
     <meta-data android:name="expo.modules.notifications.default_notification_color" android:resource="@color/notification_icon_color"/>
@@ -64,7 +25,7 @@
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
-    <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|density|smallestScreenSize" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait" android:resizeableActivity="true">
+    <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
