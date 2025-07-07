@@ -1,6 +1,4 @@
-import { useEffect } from 'react';
-import { Stack } from 'expo-router';
-import { Redirect } from 'expo-router';
+import { Stack, Redirect } from 'expo-router';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 export default function AuthLayout() {

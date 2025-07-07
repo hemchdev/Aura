@@ -8,10 +8,11 @@ import {
   TextInput,
   Platform,
   Modal,
-  Alert,
+  Clipboard,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Mic, Send, MicOff, X, AlertCircle, Calendar, Clock } from 'lucide-react-native';
+import { Mic, Send, MicOff, X, AlertCircle, Calendar, Clock, Copy, Edit3, MoreHorizontal, Trash2 } from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { geminiService } from '@/lib/gemini';
@@ -21,13 +22,14 @@ import { speechRecognitionService } from '@/lib/speechRecognition';
 import { notificationService } from '@/lib/notificationService';
 import { assistantCalendarService } from '@/lib/assistantCalendarService';
 import * as Notifications from 'expo-notifications';
-import type { ChatMessage, GeminiResponse } from '@/types/database';
+import type { GeminiResponse } from '@/types/database';
 
 interface Message {
   id: string;
   content: string;
   role: 'user' | 'assistant';
   timestamp: Date;
+  isVoiceMessage?: boolean;
 }
 
 export default function AssistantTab() {
@@ -38,19 +40,54 @@ export default function AssistantTab() {
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');
+  const [editingMessage, setEditingMessage] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [showMessageActions, setShowMessageActions] = useState<string | null>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingTimer, setRecordingTimer] = useState<any>(null);
+  const [recordingTranscript, setRecordingTranscript] = useState('');
+  const [showRecordingModal, setShowRecordingModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   const { user } = useAuthStore();
   const colors = useColors();
 
   useEffect(() => {
     loadChatHistory();
+    loadUserProfile();
     initializeNotifications();
     
     return () => {
       // Clean up speech recognition resources
-      speechRecognitionService.destroy();
+      if (speechRecognitionService && typeof speechRecognitionService.destroy === 'function') {
+        speechRecognitionService.destroy();
+      }
+      
+      // Clean up recording timer
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+      }
     };
   }, []);
+
+  const loadUserProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) throw error;
+      setProfile(data);
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
 
   const initializeNotifications = async () => {
     try {
@@ -110,7 +147,7 @@ export default function AssistantTab() {
     } else if (data.type === 'assistant_message') {
       if (actionIdentifier === 'REPLY') {
         // Open chat interface with context
-        const replyMessage = `Replying to: "${data.body}"`;
+        // const replyMessage = `Replying to: "${data.body}"`;
         setInputText('');
         // Could add context about what we're replying to
         addSystemMessage(`You can now reply to the assistant message: "${data.body}"`);
@@ -194,7 +231,7 @@ export default function AssistantTab() {
     }
   };
 
-  const processMessage = async (text: string) => {
+  const processMessage = async (text: string, isVoiceInput = false) => {
     if (!text.trim()) return;
 
     const userMessage: Message = {
@@ -202,6 +239,7 @@ export default function AssistantTab() {
       content: text,
       role: 'user',
       timestamp: new Date(),
+      isVoiceMessage: isVoiceInput,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -219,31 +257,68 @@ export default function AssistantTab() {
 
       // Process with Gemini
       const response: GeminiResponse = await geminiService.processUserMessage(text, history);
+      
+      // Debug: Log the complete Gemini response
+      console.log('=== GEMINI RESPONSE DEBUG ===');
+      console.log('User input:', text);
+      console.log('Intent:', response.intent);
+      console.log('Entities:', JSON.stringify(response.entities, null, 2));
+      console.log('Response text:', response.responseText);
+      console.log('============================');
 
-      const assistantMessage: Message = {
-        id: generateId(),
-        content: response.responseText,
-        role: 'assistant',
-        timestamp: new Date(),
-      };
+      // Check if this is an action intent that will generate its own response
+      const actionIntents = ['create_event', 'create_reminder', 'set_reminder', 'get_events', 'get_reminders', 
+                           'update_event', 'delete_event', 'update_reminder', 'delete_reminder'];
+      const isActionIntent = actionIntents.includes(response.intent);
 
-      setMessages((prev) => [...prev, assistantMessage]);
-      await saveMessage(response.responseText, 'assistant');
+      // Only add AI response message for non-action intents
+      if (!isActionIntent) {
+        const assistantMessage: Message = {
+          id: generateId(),
+          content: response.responseText,
+          role: 'assistant',
+          timestamp: new Date(),
+        };
 
-      // Handle intents
+        setMessages((prev) => [...prev, assistantMessage]);
+        await saveMessage(response.responseText, 'assistant');
+      }
+
+      // Handle intents (this will add specific messages for action intents)
       await handleIntent(response);
 
-      // Speak response if enabled
-      await speechService.speak(response.responseText, {
-        language: 'en',
-        pitch: 1.0,
-        rate: 0.9,
-      });
+      // For voice output, clean the text from markdown
+      const responseTextForSpeech = isActionIntent ? 
+        (response.responseText || "Action completed") : response.responseText;
+      
+      const cleanResponseForSpeech = responseTextForSpeech
+        .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold markdown
+        .replace(/\*(.*?)\*/g, '$1') // Remove italic markdown
+        .replace(/`(.*?)`/g, '$1') // Remove code markdown
+        .replace(/#{1,6}\s/g, '') // Remove heading markdown
+        .trim();
+
+      // Check if voice assistant is enabled and if this was a voice input or user prefers voice responses
+      const shouldSpeak = profile?.settings?.voice_enabled !== false && 
+                         (isVoiceInput || profile?.settings?.always_voice_response === true);
+
+      if (shouldSpeak) {
+        try {
+          await speechService.speak(cleanResponseForSpeech, {
+            language: 'en',
+            pitch: 1.0,
+            rate: 0.9,
+          });
+        } catch (speechError) {
+          console.error('Error with text-to-speech:', speechError);
+          // Don't show error to user for TTS failures, just log it
+        }
+      }
     } catch (error) {
       console.error('Error processing message:', error);
       const errorMessage: Message = {
         id: generateId(),
-        content: "I'm sorry, I encountered an error processing your request. Please try again.",
+        content: "I&apos;m sorry, I encountered an error processing your request. Please try again.",
         role: 'assistant',
         timestamp: new Date(),
       };
@@ -311,24 +386,102 @@ export default function AssistantTab() {
   };
 
   const handleCreateEvent = async (response: GeminiResponse) => {
-    if (response.entities.title && response.entities.date) {
+    console.log('Creating event with response:', JSON.stringify(response.entities, null, 2));
+    
+    // Add explicit debug for the exact case user is testing
+    if (response.entities.title === "Project deadline") {
+      console.log('🔍 SPECIFIC DEBUG FOR PROJECT DEADLINE:');
+      console.log('multiDay:', response.entities.multiDay);
+      console.log('dateRange:', response.entities.dateRange);
+      console.log('date:', response.entities.date);
+      console.log('relativeTime:', response.entities.relativeTime);
+    }
+    
+    if (response.entities.title && (response.entities.date || response.entities.multiDay || response.entities.dateRange)) {
       let startTime: Date;
+      let endTime: Date | undefined;
       
-      // Handle relative dates like "tomorrow", "today"
-      if (response.entities.relativeTime === 'tomorrow') {
-        startTime = new Date();
-        startTime.setDate(startTime.getDate() + 1);
-      } else if (response.entities.relativeTime === 'today') {
-        startTime = new Date();
+      // Handle multi-day events with date ranges FIRST
+      if (response.entities.multiDay && response.entities.dateRange) {
+        const today = new Date();
+        console.log('Processing multi-day event with dateRange:', response.entities.dateRange);
+        
+        switch (response.entities.dateRange) {
+          case 'this_week':
+            // Start from Monday of current week
+            const mondayThisWeek = new Date(today);
+            mondayThisWeek.setDate(today.getDate() - today.getDay() + 1);
+            startTime = mondayThisWeek;
+            // End on Sunday
+            endTime = new Date(mondayThisWeek);
+            endTime.setDate(mondayThisWeek.getDate() + 6);
+            console.log('This week dates:', { start: startTime, end: endTime });
+            break;
+            
+          case 'next_week':
+            // Start from Monday of next week
+            const mondayNextWeek = new Date(today);
+            mondayNextWeek.setDate(today.getDate() - today.getDay() + 8);
+            startTime = mondayNextWeek;
+            // End on Sunday
+            endTime = new Date(mondayNextWeek);
+            endTime.setDate(mondayNextWeek.getDate() + 6);
+            console.log('Next week dates:', { start: startTime, end: endTime });
+            break;
+            
+          case 'next_3_weeks':
+            startTime = new Date(today);
+            startTime.setDate(today.getDate() + 1); // Start tomorrow
+            endTime = new Date(startTime);
+            endTime.setDate(startTime.getDate() + 21); // 3 weeks later
+            console.log('Next 3 weeks dates:', { start: startTime, end: endTime });
+            break;
+            
+          case 'this_month':
+            startTime = new Date(today.getFullYear(), today.getMonth(), 1);
+            endTime = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            console.log('This month dates:', { start: startTime, end: endTime });
+            break;
+            
+          case 'next_month':
+            startTime = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            endTime = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+            console.log('Next month dates:', { start: startTime, end: endTime });
+            break;
+            
+          default:
+            // Use provided endDate if available
+            if (response.entities.endDate) {
+              startTime = response.entities.date ? new Date(response.entities.date) : new Date();
+              endTime = new Date(response.entities.endDate);
+              console.log('Using provided dates:', { start: startTime, end: endTime });
+            } else {
+              // Fallback to single day from current date
+              startTime = response.entities.date ? new Date(response.entities.date) : new Date();
+              console.log('Fallback to single day:', startTime);
+            }
+        }
       } else {
-        startTime = new Date(response.entities.date);
+        // Handle single-day events or relative dates
+        if (response.entities.relativeTime === 'tomorrow') {
+          startTime = new Date();
+          startTime.setDate(startTime.getDate() + 1);
+        } else if (response.entities.relativeTime === 'today') {
+          startTime = new Date();
+        } else if (response.entities.date) {
+          startTime = new Date(response.entities.date);
+        } else {
+          // Default to today if no date is provided
+          startTime = new Date();
+        }
+        console.log('Single day event date:', startTime);
       }
       
-      // Set time if provided, otherwise default to 12:00
-      if (response.entities.time) {
+      // Set time if provided, otherwise default to 12:00 for single-day events
+      if (response.entities.time && !response.entities.multiDay) {
         const [hours, minutes] = response.entities.time.split(':');
         startTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      } else {
+      } else if (!response.entities.multiDay) {
         startTime.setHours(12, 0, 0, 0);
       }
 
@@ -336,11 +489,18 @@ export default function AssistantTab() {
         title: response.entities.title,
         description: response.entities.description || '',
         startTime,
+        endTime,
         location: response.entities.location || '',
-        reminderMinutes: response.entities.reminderMinutes || 15,
+        reminderMinutes: response.entities.reminderMinutes || (response.entities.multiDay ? undefined : 15),
+        multiDay: response.entities.multiDay || false,
+        dateRange: response.entities.dateRange,
       };
 
+      console.log('Final event data:', eventData);
+
       const result = await assistantCalendarService.createEvent(eventData);
+      
+      console.log('Calendar service result:', result);
       
       if (result.success) {
         const successMessage: Message = {
@@ -350,6 +510,9 @@ export default function AssistantTab() {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, successMessage]);
+        
+        // Save the success message to database
+        await saveMessage(successMessage.content, 'assistant');
         
         // Send confirmation notification
         await notificationService.sendAssistantMessage(
@@ -364,7 +527,29 @@ export default function AssistantTab() {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMessage]);
+        
+        // Save the error message to database
+        await saveMessage(errorMessage.content, 'assistant');
       }
+    } else {
+      // Handle case where required fields are missing
+      console.log('Event creation failed - missing required fields:', {
+        title: response.entities.title,
+        date: response.entities.date,
+        multiDay: response.entities.multiDay,
+        dateRange: response.entities.dateRange
+      });
+      
+      const errorMessage: Message = {
+        id: generateId(),
+        content: `❌ Unable to create event. Please provide at least a title and when you want the event to be scheduled.`,
+        role: 'assistant',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      
+      // Save the error message to database
+      await saveMessage(errorMessage.content, 'assistant');
     }
   };
 
@@ -406,6 +591,9 @@ export default function AssistantTab() {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, successMessage]);
+        
+        // Save the success message to database
+        await saveMessage(successMessage.content, 'assistant');
       } else {
         const errorMessage: Message = {
           id: generateId(),
@@ -414,6 +602,9 @@ export default function AssistantTab() {
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMessage]);
+        
+        // Save the error message to database
+        await saveMessage(errorMessage.content, 'assistant');
       }
     }
   };
@@ -433,7 +624,7 @@ export default function AssistantTab() {
 
     const result = await assistantCalendarService.getEvents(filters);
     
-    if (result.success && result.data) {
+    if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
       let eventsList = `📅 **Your Events:**\n\n`;
       result.data.forEach((event: any, index: number) => {
         const startTime = new Date(event.start_time);
@@ -451,14 +642,20 @@ export default function AssistantTab() {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, eventsMessage]);
+      
+      // Save the events list message to database
+      await saveMessage(eventsList, 'assistant');
     } else {
       const noEventsMessage: Message = {
         id: generateId(),
-        content: result.data?.length === 0 ? "📅 No events found for the specified criteria." : `❌ ${result.message}`,
+        content: result.success ? "📅 No events found for the specified criteria." : `❌ ${result.message}`,
         role: 'assistant',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, noEventsMessage]);
+      
+      // Save the no events message to database
+      await saveMessage(noEventsMessage.content, 'assistant');
     }
   };
 
@@ -471,7 +668,7 @@ export default function AssistantTab() {
 
     const result = await assistantCalendarService.getReminders(filters);
     
-    if (result.success && result.data) {
+    if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
       let remindersList = `⏰ **Your Reminders:**\n\n`;
       result.data.forEach((reminder: any, index: number) => {
         const remindTime = new Date(reminder.remind_at);
@@ -490,14 +687,20 @@ export default function AssistantTab() {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, remindersMessage]);
+      
+      // Save the reminders list message to database
+      await saveMessage(remindersList, 'assistant');
     } else {
       const noRemindersMessage: Message = {
         id: generateId(),
-        content: result.data?.length === 0 ? "⏰ No pending reminders found." : `❌ ${result.message}`,
+        content: result.success ? "⏰ No reminders found." : `❌ ${result.message}`,
         role: 'assistant',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, noRemindersMessage]);
+      
+      // Save the no reminders message to database
+      await saveMessage(noRemindersMessage.content, 'assistant');
     }
   };
 
@@ -853,44 +1056,344 @@ export default function AssistantTab() {
   };
 
   const handleSend = () => {
-    processMessage(inputText);
+    processMessage(inputText, false);
     setInputText('');
   };
 
-  const startListening = () => {
-    if (!speechRecognitionService.isAvailable()) {
+  const startPulseAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.2,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  const stopPulseAnimation = () => {
+    pulseAnim.stopAnimation();
+    pulseAnim.setValue(1);
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const startListening = async () => {
+    console.log('Starting voice recognition...');
+    console.log('Platform:', Platform.OS);
+    console.log('speechRecognitionService available:', !!speechRecognitionService);
+    
+    // Check if voice assistant is enabled
+    if (profile?.settings?.voice_enabled === false) {
+      showInfoModal('Voice Disabled', 'Voice assistant is disabled in settings. Please enable it in Settings > Voice Assistant.');
+      return;
+    }
+
+    // Check if speechRecognitionService is available
+    if (!speechRecognitionService) {
+      console.error('speechRecognitionService is undefined');
+      showInfoModal('Voice Input', 'Voice recognition service is not available. Please type your message.');
+      return;
+    }
+
+    if (typeof speechRecognitionService.isAvailable !== 'function') {
+      console.error('speechRecognitionService.isAvailable is not a function');
+      showInfoModal('Voice Input', 'Voice recognition service is not properly initialized. Please type your message.');
+      return;
+    }
+
+    const isAvailable = speechRecognitionService.isAvailable();
+    console.log('Speech recognition available:', isAvailable);
+    
+    if (!isAvailable) {
       showInfoModal('Voice Input', 'Voice input is not available on your device. Please type your message.');
       return;
     }
 
     setIsListening(true);
+    setRecordingTime(0);
+    setRecordingTranscript('');
+    setShowRecordingModal(true);
+    startPulseAnimation();
     
-    speechRecognitionService.startListening({
-      onSpeechStart: () => {
-        console.log('Speech recognition started');
-      },
-      onSpeechResults: (text) => {
-        setInputText(text);
-      },
-      onSpeechError: (error) => {
-        console.error('Speech recognition error:', error);
-        showInfoModal('Error', 'Failed to recognize speech. Please try again or type your message.');
-        setIsListening(false);
-      },
-      onSpeechEnd: () => {
-        setIsListening(false);
-      },
-    }).catch(error => {
+    // Start recording timer
+    const timer = setInterval(() => {
+      setRecordingTime(prev => prev + 1);
+    }, 1000);
+    setRecordingTimer(timer);
+    
+    try {
+      console.log('Attempting to start speech recognition...');
+      await speechRecognitionService.startListening({
+        onSpeechStart: () => {
+          console.log('Speech recognition started successfully');
+        },
+        onSpeechResults: (text: string) => {
+          console.log('Speech recognition result:', text);
+          setRecordingTranscript(text);
+        },
+        onSpeechError: (error: string) => {
+          console.error('Speech recognition error:', error);
+          let errorMessage = 'Failed to start speech recognition. Please try again or type your message.';
+          
+          if (error.toLowerCase().includes('permission')) {
+            errorMessage = 'Microphone permission denied. Please enable microphone access in your device settings.';
+          } else if (error.toLowerCase().includes('network')) {
+            errorMessage = 'Network error during speech recognition. Please check your internet connection.';
+          } else if (error.toLowerCase().includes('no match')) {
+            errorMessage = 'Could not understand the speech. Please try speaking more clearly.';
+          }
+          
+          showInfoModal('Speech Recognition Error', errorMessage);
+          stopListening(false);
+        },
+        onSpeechEnd: () => {
+          // Don't auto-process here, let user control when to send
+          console.log('Speech recognition ended');
+        },
+      });
+    } catch (error) {
       console.error('Failed to start speech recognition:', error);
-      showInfoModal('Error', 'Failed to start speech recognition. Please try again.');
-      setIsListening(false);
-    });
+      showInfoModal('Error', `Failed to start speech recognition: ${error}. Please check microphone permissions.`);
+      stopListening(false);
+    }
   };
   
-  const stopListening = () => {
-    if (isListening) {
+  const stopListening = async (sendMessage = true) => {
+    setIsListening(false);
+    setShowRecordingModal(false);
+    stopPulseAnimation();
+    
+    // Clear recording timer
+    if (recordingTimer) {
+      clearInterval(recordingTimer);
+      setRecordingTimer(null);
+    }
+    
+    if (speechRecognitionService && typeof speechRecognitionService.stopListening === 'function') {
       speechRecognitionService.stopListening();
-      setIsListening(false);
+    }
+    
+    if (sendMessage && recordingTranscript.trim()) {
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        content: recordingTranscript.trim(),
+        role: 'user' as const,
+        timestamp: new Date(),
+        isVoiceMessage: true,
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      
+      // Save to database
+      if (user) {
+        await saveMessage(userMessage.content, 'user');
+      }
+      
+      // Process the message and get AI response with voice
+      await processMessage(recordingTranscript.trim(), true);
+    }
+    
+    setRecordingTime(0);
+    setRecordingTranscript('');
+  };
+
+  const cancelRecording = () => {
+    setIsListening(false);
+    setShowRecordingModal(false);
+    stopPulseAnimation();
+    
+    // Clear recording timer
+    if (recordingTimer) {
+      clearInterval(recordingTimer);
+      setRecordingTimer(null);
+    }
+    
+    if (speechRecognitionService && typeof speechRecognitionService.stopListening === 'function') {
+      speechRecognitionService.stopListening();
+    }
+    
+    setRecordingTime(0);
+    setRecordingTranscript('');
+  };
+
+  const copyMessage = async (messageId: string) => {
+    const message = messages.find(m => m.id === messageId);
+    if (message) {
+      await Clipboard.setString(message.content);
+      showInfoModal('Copied', 'Message copied to clipboard');
+    }
+    setShowMessageActions(null);
+  };
+
+  const startEditMessage = (messageId: string) => {
+    const message = messages.find(m => m.id === messageId);
+    if (message && message.role === 'user') {
+      setEditingMessage(messageId);
+      setEditText(message.content);
+      setShowMessageActions(null);
+    }
+  };
+
+  const saveEditMessage = async () => {
+    if (!editingMessage || !editText.trim()) return;
+
+    try {
+      setMessages(prev => prev.map(msg => 
+        msg.id === editingMessage 
+          ? { ...msg, content: editText.trim() }
+          : msg
+      ));
+
+      await supabase
+        .from('chat_messages')
+        .update({ content: editText.trim() })
+        .eq('id', editingMessage);
+
+      setEditingMessage(null);
+      setEditText('');
+      
+      showInfoModal('Updated', 'Message updated successfully');
+    } catch (error) {
+      console.error('Error updating message:', error);
+      showInfoModal('Error', 'Failed to update message');
+    }
+  };
+
+  const cancelEditMessage = () => {
+    setEditingMessage(null);
+    setEditText('');
+  };
+
+  const renderMarkdownText = (text: string, textStyle: any) => {
+    // Split text by markdown patterns and render accordingly
+    const parts = [];
+    let lastIndex = 0;
+    
+    // Regex to match **bold**, *italic*, and `code` patterns
+    const markdownRegex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`)/g;
+    let match;
+    
+    while ((match = markdownRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(
+          <Text key={`text-${lastIndex}`}>
+            {text.substring(lastIndex, match.index)}
+          </Text>
+        );
+      }
+      
+      // Add the formatted text
+      if (match[2]) {
+        // Bold text (**text**)
+        parts.push(
+          <Text key={`bold-${match.index}`} style={{ fontWeight: 'bold' }}>
+            {match[2]}
+          </Text>
+        );
+      } else if (match[3]) {
+        // Italic text (*text*)
+        parts.push(
+          <Text key={`italic-${match.index}`} style={{ fontStyle: 'italic' }}>
+            {match[3]}
+          </Text>
+        );
+      } else if (match[4]) {
+        // Code text (`text`)
+        parts.push(
+          <Text key={`code-${match.index}`} style={{ 
+            fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+            backgroundColor: colors.muted,
+            paddingHorizontal: 4,
+            paddingVertical: 2,
+            borderRadius: 4,
+            fontSize: textStyle.fontSize - 1
+          }}>
+            {match[4]}
+          </Text>
+        );
+      }
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(
+        <Text key={`text-${lastIndex}`}>
+          {text.substring(lastIndex)}
+        </Text>
+      );
+    }
+    
+    return parts.length > 0 ? parts : text;
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    try {
+      const messageToDelete = messages.find(msg => msg.id === messageId);
+      if (!messageToDelete) return;
+
+      let messagesToDelete = [messageId];
+
+      // If deleting a user message, also delete the AI response that follows
+      if (messageToDelete.role === 'user') {
+        const messageIndex = messages.findIndex(msg => msg.id === messageId);
+        if (messageIndex !== -1 && messageIndex < messages.length - 1) {
+          const nextMessage = messages[messageIndex + 1];
+          if (nextMessage.role === 'assistant') {
+            messagesToDelete.push(nextMessage.id);
+          }
+        }
+      }
+
+      // If deleting an assistant message, also delete the user message that preceded it
+      if (messageToDelete.role === 'assistant') {
+        const messageIndex = messages.findIndex(msg => msg.id === messageId);
+        if (messageIndex > 0) {
+          const prevMessage = messages[messageIndex - 1];
+          if (prevMessage.role === 'user') {
+            messagesToDelete.push(prevMessage.id);
+          }
+        }
+      }
+
+      // Remove from state first (optimistic update)
+      setMessages(prev => prev.filter(msg => !messagesToDelete.includes(msg.id)));
+
+      // Remove from database
+      if (user) {
+        await supabase
+          .from('chat_messages')
+          .delete()
+          .in('id', messagesToDelete);
+      }
+
+      setShowMessageActions(null);
+      const deletedCount = messagesToDelete.length;
+      
+      if (deletedCount > 1) {
+        showInfoModal('Deleted', `User message and assistant response deleted successfully`);
+      } else {
+        showInfoModal('Deleted', 'Message deleted successfully');
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      showInfoModal('Error', 'Failed to delete message');
+      
+      // Reload messages from database on error to revert optimistic update
+      loadChatHistory();
     }
   };
 
@@ -916,11 +1419,15 @@ export default function AssistantTab() {
     },
     messagesContainer: {
       flex: 1,
-      padding: 16,
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 16,
     },
     messageContainer: {
       marginBottom: 16,
-      maxWidth: '80%',
+      maxWidth: '85%',
+      width: 'auto',
+      flexShrink: 1,
     },
     userMessage: {
       alignSelf: 'flex-end',
@@ -931,6 +1438,8 @@ export default function AssistantTab() {
     messageBubble: {
       padding: 12,
       borderRadius: 16,
+      flex: 1,
+      maxWidth: '100%',
     },
     userBubble: {
       backgroundColor: colors.primary,
@@ -943,6 +1452,9 @@ export default function AssistantTab() {
     messageText: {
       fontSize: 16,
       lineHeight: 22,
+      flexWrap: 'wrap',
+      flexShrink: 1,
+      textAlign: 'left',
     },
     userText: {
       color: colors.primaryForeground,
@@ -1047,7 +1559,7 @@ export default function AssistantTab() {
       borderRadius: 8,
       paddingVertical: 12,
       paddingHorizontal: 32,
-      minWidth: 100,
+      flex: 1,
       alignItems: 'center',
     },
     modalButtonText: {
@@ -1078,6 +1590,294 @@ export default function AssistantTab() {
       marginLeft: 4,
       fontWeight: '500',
     },
+    messageRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      maxWidth: '100%',
+      flexShrink: 1,
+    },
+    messageActions: {
+      padding: 8,
+      marginTop: 8,
+      flexShrink: 0,
+      width: 32,
+      height: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 16,
+      backgroundColor: colors.muted + '20',
+    },
+    actionsMenu: {
+      backgroundColor: colors.card,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginTop: 8,
+      padding: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    actionItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 8,
+      gap: 8,
+    },
+    actionText: {
+      fontSize: 14,
+      color: colors.foreground,
+    },
+    editContainer: {
+      width: '100%',
+      maxWidth: '100%',
+      flexShrink: 1,
+    },
+    editInput: {
+      backgroundColor: colors.input,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 8,
+      color: colors.foreground,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minHeight: 60,
+    },
+    editActions: {
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'flex-end',
+    },
+    saveButton: {
+      backgroundColor: colors.primary,
+      borderRadius: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    saveButtonText: {
+      color: colors.primaryForeground,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    cancelButton: {
+      backgroundColor: colors.muted,
+      borderRadius: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    cancelButtonText: {
+      color: colors.mutedForeground,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    voiceIndicator: {
+      fontSize: 12,
+      opacity: 0.7,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+    },
+    welcomeContainer: {
+      alignItems: 'center',
+      maxWidth: 300,
+    },
+    welcomeTitle: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.foreground,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    welcomeSubtitle: {
+      fontSize: 16,
+      color: colors.mutedForeground,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: 16,
+    },
+    welcomeHint: {
+      fontSize: 14,
+      color: colors.mutedForeground,
+      textAlign: 'center',
+      fontStyle: 'italic',
+      lineHeight: 20,
+    },
+    // Recording Modal Styles
+    recordingModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    recordingModalContent: {
+      backgroundColor: colors.card,
+      margin: 20,
+      borderRadius: 20,
+      padding: 24,
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
+      width: '90%',
+      maxWidth: 400,
+    },
+    recordingHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      width: '100%',
+      marginBottom: 24,
+    },
+    recordingTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: colors.cardForeground,
+    },
+    recordingCloseButton: {
+      padding: 4,
+    },
+    recordingAnimation: {
+      position: 'relative',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 24,
+    },
+    microphoneIcon: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.card,
+      borderWidth: 2,
+      borderColor: colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 2,
+    },
+    microphoneActive: {
+      backgroundColor: colors.primary + '20',
+      borderColor: colors.primary,
+    },
+    pulseAnimation: {
+      position: 'absolute',
+      width: 80,
+      height: 80,
+    },
+    pulseRing: {
+      position: 'absolute',
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderRadius: 50,
+      opacity: 0.6,
+    },
+    pulseRing1: {
+      width: 100,
+      height: 100,
+      top: -10,
+      left: -10,
+    },
+    pulseRing2: {
+      width: 120,
+      height: 120,
+      top: -20,
+      left: -20,
+    },
+    pulseRing3: {
+      width: 140,
+      height: 140,
+      top: -30,
+      left: -30,
+    },
+    recordingTime: {
+      fontSize: 24,
+      fontWeight: '600',
+      color: colors.primary,
+      marginBottom: 20,
+      fontVariant: ['tabular-nums'],
+    },
+    transcriptContainer: {
+      width: '100%',
+      marginBottom: 24,
+    },
+    transcriptLabel: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.cardForeground,
+      marginBottom: 8,
+    },
+    transcriptText: {
+      fontSize: 16,
+      color: colors.mutedForeground,
+      backgroundColor: colors.background,
+      padding: 12,
+      borderRadius: 8,
+      minHeight: 50,
+      textAlignVertical: 'top',
+    },
+    recordingActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      width: '100%',
+      gap: 12,
+    },
+    recordingCancelButton: {
+      flex: 1,
+      backgroundColor: colors.secondary,
+      padding: 14,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+    recordingCancelButtonText: {
+      color: colors.secondaryForeground,
+      fontSize: 16,
+      fontWeight: '500',
+    },
+    recordingSendButton: {
+      flex: 1,
+      backgroundColor: colors.primary,
+      padding: 14,
+      borderRadius: 10,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    recordingSendButtonDisabled: {
+      backgroundColor: colors.muted,
+    },
+    recordingSendButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '500',
+    },
+    recordingSendButtonTextDisabled: {
+      color: colors.mutedForeground,
+    },
+    modalActions: {
+      flexDirection: 'row',
+      gap: 12,
+      justifyContent: 'space-between',
+      width: '100%',
+    },
+    modalCancelButton: {
+      backgroundColor: colors.secondary,
+    },
+    modalCancelButtonText: {
+      color: colors.secondaryForeground,
+    },
+    modalDeleteButton: {
+      backgroundColor: colors.destructive,
+    },
   });
 
   return (
@@ -1092,8 +1892,21 @@ export default function AssistantTab() {
       <ScrollView
         ref={scrollViewRef}
         style={styles.messagesContainer}
+        contentContainerStyle={messages.length === 0 ? styles.emptyContainer : undefined}
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd()}
       >
+        {messages.length === 0 && (
+          <View style={styles.welcomeContainer}>
+            <Text style={styles.welcomeTitle}>👋 Hello! I&apos;m Aura</Text>
+            <Text style={styles.welcomeSubtitle}>
+              Your AI-powered personal assistant. I can help you manage your calendar, set reminders, and much more!
+            </Text>
+            <Text style={styles.welcomeHint}>
+              Try saying: &quot;Schedule a meeting tomorrow&quot; or &quot;Remind me to call mom&quot;
+            </Text>
+          </View>
+        )}
+        
         {messages.map((message) => (
           <View
             key={message.id}
@@ -1102,21 +1915,92 @@ export default function AssistantTab() {
               message.role === 'user' ? styles.userMessage : styles.assistantMessage,
             ]}
           >
-            <View
-              style={[
-                styles.messageBubble,
-                message.role === 'user' ? styles.userBubble : styles.assistantBubble,
-              ]}
-            >
-              <Text
+            <View style={styles.messageRow}>
+              <View
                 style={[
-                  styles.messageText,
-                  message.role === 'user' ? styles.userText : styles.assistantText,
+                  styles.messageBubble,
+                  message.role === 'user' ? styles.userBubble : styles.assistantBubble,
                 ]}
               >
-                {message.content}
-              </Text>
+                {editingMessage === message.id ? (
+                  <View style={styles.editContainer}>
+                    <TextInput
+                      style={styles.editInput}
+                      value={editText}
+                      onChangeText={setEditText}
+                      multiline
+                      autoFocus
+                    />
+                    <View style={styles.editActions}>
+                      <TouchableOpacity style={styles.saveButton} onPress={saveEditMessage}>
+                        <Text style={styles.saveButtonText}>Save</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.cancelButton} onPress={cancelEditMessage}>
+                        <Text style={styles.cancelButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <Text
+                    style={[
+                      styles.messageText,
+                      message.role === 'user' ? styles.userText : styles.assistantText,
+                    ]}
+                  >
+                    {message.role === 'assistant' ? 
+                      renderMarkdownText(message.content, styles.assistantText) :
+                      message.content
+                    }
+                    {message.isVoiceMessage && (
+                      <Text style={styles.voiceIndicator}> 🎤</Text>
+                    )}
+                  </Text>
+                )}
+              </View>
+              
+              {/* Message Actions Button */}
+              <TouchableOpacity
+                style={styles.messageActions}
+                onPress={() => setShowMessageActions(showMessageActions === message.id ? null : message.id)}
+              >
+                <MoreHorizontal size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
             </View>
+
+            {/* Message Actions Menu */}
+            {showMessageActions === message.id && (
+              <View style={styles.actionsMenu}>
+                <TouchableOpacity 
+                  style={styles.actionItem}
+                  onPress={() => copyMessage(message.id)}
+                >
+                  <Copy size={16} color={colors.foreground} />
+                  <Text style={styles.actionText}>Copy</Text>
+                </TouchableOpacity>
+                
+                {message.role === 'user' && (
+                  <TouchableOpacity 
+                    style={styles.actionItem}
+                    onPress={() => startEditMessage(message.id)}
+                  >
+                    <Edit3 size={16} color={colors.foreground} />
+                    <Text style={styles.actionText}>Edit</Text>
+                  </TouchableOpacity>
+                )}
+                
+                <TouchableOpacity 
+                  style={styles.actionItem}
+                  onPress={() => {
+                    setShowMessageActions(null);
+                    setShowDeleteConfirm(message.id);
+                  }}
+                >
+                  <Trash2 size={16} color={colors.destructive} />
+                  <Text style={[styles.actionText, { color: colors.destructive }]}>Delete</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            
             <Text style={styles.timestamp}>
               {message.timestamp.toLocaleTimeString([], { 
                 hour: '2-digit', 
@@ -1139,7 +2023,7 @@ export default function AssistantTab() {
             onPress={() => processMessage("Show my events today")}
           >
             <Calendar size={16} color={colors.primary} />
-            <Text style={styles.quickActionText}>Today's Events</Text>
+            <Text style={styles.quickActionText}>Today&apos;s Events</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
@@ -1147,7 +2031,7 @@ export default function AssistantTab() {
             onPress={() => processMessage("Show my reminders")}
           >
             <Clock size={16} color={colors.primary} />
-            <Text style={styles.quickActionText}>Reminders</Text>
+            <Text style={styles.quickActionText}>My Reminders</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
@@ -1165,6 +2049,38 @@ export default function AssistantTab() {
             <Clock size={16} color={colors.primary} />
             <Text style={styles.quickActionText}>New Reminder</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => processMessage("Show my events this week")}
+          >
+            <Calendar size={16} color={colors.primary} />
+            <Text style={styles.quickActionText}>This Week</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => processMessage("What do I have tomorrow")}
+          >
+            <Clock size={16} color={colors.primary} />
+            <Text style={styles.quickActionText}>Tomorrow</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => setInputText("Schedule a meeting with ")}
+          >
+            <Calendar size={16} color={colors.primary} />
+            <Text style={styles.quickActionText}>New Meeting</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => processMessage("Cancel my next meeting")}
+          >
+            <X size={16} color={colors.destructive} />
+            <Text style={[styles.quickActionText, { color: colors.destructive }]}>Cancel Event</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -1181,7 +2097,7 @@ export default function AssistantTab() {
         
         <TouchableOpacity
           style={[styles.micButton, isListening && styles.listeningButton]}
-          onPress={isListening ? stopListening : startListening}
+          onPress={isListening ? () => stopListening() : startListening}
           disabled={isLoading}
         >
           {isListening ? (
@@ -1233,6 +2149,124 @@ export default function AssistantTab() {
             >
               <Text style={styles.modalButtonText}>OK</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Recording Modal */}
+      <Modal
+        visible={showRecordingModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={cancelRecording}
+      >
+        <View style={styles.recordingModalOverlay}>
+          <View style={styles.recordingModalContent}>
+            <View style={styles.recordingHeader}>
+              <Text style={styles.recordingTitle}>Recording Voice Message</Text>
+              <TouchableOpacity
+                style={styles.recordingCloseButton}
+                onPress={cancelRecording}
+              >
+                <X size={24} color={colors.cardForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.recordingAnimation}>
+              <View style={[styles.microphoneIcon, isListening && styles.microphoneActive]}>
+                <Mic size={48} color={isListening ? colors.primary : colors.muted} />
+              </View>
+              {isListening && (
+                <Animated.View style={[styles.pulseAnimation, { transform: [{ scale: pulseAnim }] }]}>
+                  <View style={[styles.pulseRing, styles.pulseRing1]} />
+                  <View style={[styles.pulseRing, styles.pulseRing2]} />
+                  <View style={[styles.pulseRing, styles.pulseRing3]} />
+                </Animated.View>
+              )}
+            </View>
+
+            <Text style={styles.recordingTime}>{formatTime(recordingTime)}</Text>
+
+            <View style={styles.transcriptContainer}>
+              <Text style={styles.transcriptLabel}>Live Transcript:</Text>
+              <Text style={styles.transcriptText}>
+                {recordingTranscript || "Start speaking..."}
+              </Text>
+            </View>
+
+            <View style={styles.recordingActions}>
+              <TouchableOpacity
+                style={styles.recordingCancelButton}
+                onPress={cancelRecording}
+              >
+                <Text style={styles.recordingCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.recordingSendButton, !recordingTranscript.trim() && styles.recordingSendButtonDisabled]}
+                onPress={() => stopListening(true)}
+                disabled={!recordingTranscript.trim()}
+              >
+                <Send size={20} color={recordingTranscript.trim() ? '#fff' : colors.muted} />
+                <Text style={[styles.recordingSendButtonText, !recordingTranscript.trim() && styles.recordingSendButtonTextDisabled]}>
+                  Send
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={!!showDeleteConfirm}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirm(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Delete Message</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowDeleteConfirm(null)}
+              >
+                <X size={24} color={colors.cardForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalIcon}>
+              <AlertCircle size={48} color={colors.destructive} />
+            </View>
+
+            <Text style={styles.modalMessage}>
+              {showDeleteConfirm && messages.find(m => m.id === showDeleteConfirm)?.role === 'user'
+                ? 'This will delete your message and the assistant\'s response. Are you sure?'
+                : 'Are you sure you want to delete this message?'
+              }
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => setShowDeleteConfirm(null)}
+              >
+                <Text style={[styles.modalButtonText, styles.modalCancelButtonText]}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalDeleteButton]}
+                onPress={() => {
+                  if (showDeleteConfirm) {
+                    deleteMessage(showDeleteConfirm);
+                    setShowDeleteConfirm(null);
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

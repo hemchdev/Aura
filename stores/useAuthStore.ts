@@ -372,7 +372,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw fetchError;
       } else {
         // Profile exists, update local state
-        console.log('Profile found in ensureProfile:', existingProfile);
+        // console.log('Profile found in ensureProfile:', existingProfile);
         set({ profile: existingProfile });
         return existingProfile;
       }

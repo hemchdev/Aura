@@ -25,8 +25,20 @@ class AssistantCalendarService {
     endTime?: Date;
     location?: string;
     reminderMinutes?: number;
+    multiDay?: boolean;
+    dateRange?: string;
   }): Promise<CalendarResponse> {
     try {
+      // Debug logging
+      console.log('=== CALENDAR SERVICE DEBUG ===');
+      console.log('Event data received:', {
+        title: eventData.title,
+        startTime: eventData.startTime.toISOString(),
+        endTime: eventData.endTime?.toISOString(),
+        multiDay: eventData.multiDay,
+        dateRange: eventData.dateRange,
+      });
+      
       const user = useAuthStore.getState().user;
       if (!user) {
         return { success: false, message: 'User not authenticated', error: 'No user found' };
@@ -34,7 +46,38 @@ class AssistantCalendarService {
 
       await useAuthStore.getState().ensureProfile();
 
-      const endTime = eventData.endTime || new Date(eventData.startTime.getTime() + 60 * 60 * 1000);
+      // Handle multi-day events
+      let endTime = eventData.endTime;
+      let isAllDay = false;
+      
+      if (eventData.multiDay && eventData.endTime) {
+        // For multi-day events, make them all-day events
+        isAllDay = true;
+        // Set start time to beginning of day
+        const startOfDay = new Date(eventData.startTime);
+        startOfDay.setHours(0, 0, 0, 0);
+        
+        // Set end time to end of the last day
+        const endOfDay = new Date(eventData.endTime);
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        endTime = endOfDay;
+        eventData.startTime = startOfDay;
+        
+        console.log('Multi-day event processed:', {
+          startTime: eventData.startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          isAllDay,
+        });
+      } else {
+        // For single day events, default to 1 hour duration if no end time
+        endTime = eventData.endTime || new Date(eventData.startTime.getTime() + 60 * 60 * 1000);
+        console.log('Single day event processed:', {
+          startTime: eventData.startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          isAllDay,
+        });
+      }
 
       const { data, error } = await supabase.from('events').insert({
         user_id: user.id,
@@ -43,15 +86,15 @@ class AssistantCalendarService {
         start_time: eventData.startTime.toISOString(),
         end_time: endTime.toISOString(),
         location: eventData.location || '',
-        all_day: false,
+        all_day: isAllDay,
       }).select().single();
 
       if (error) {
         return { success: false, message: 'Failed to create event', error: error.message };
       }
 
-      // Schedule notification reminder
-      if (eventData.reminderMinutes && eventData.reminderMinutes > 0) {
+      // Schedule notification reminder (skip for multi-day events as they're usually all-day)
+      if (eventData.reminderMinutes && eventData.reminderMinutes > 0 && !isAllDay) {
         await notificationService.scheduleEventReminder(
           data.id,
           eventData.title,
@@ -60,9 +103,13 @@ class AssistantCalendarService {
         );
       }
 
+      const durationText = eventData.multiDay 
+        ? `from ${eventData.startTime.toLocaleDateString()} to ${endTime.toLocaleDateString()}`
+        : `on ${eventData.startTime.toLocaleDateString()} at ${eventData.startTime.toLocaleTimeString()}`;
+
       return {
         success: true,
-        message: `Event "${eventData.title}" has been created successfully`,
+        message: `Event "${eventData.title}" has been created successfully ${durationText}`,
         data: data
       };
     } catch (error: any) {

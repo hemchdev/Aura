@@ -141,6 +141,13 @@ export interface GeminiResponse {
     eventId?: string;
     reminderId?: string;
     searchQuery?: string;
+    duration?: number;
+    priority?: string;
+    recurring?: string;
+    endDate?: string;
+    participants?: string[];
+    dateRange?: string;
+    multiDay?: boolean;
   };
   confidence: number;
   responseText: string;

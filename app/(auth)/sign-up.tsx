@@ -10,14 +10,15 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, useRouter } from 'expo-router';
+import { Link, useRouter, useLocalSearchParams } from 'expo-router';
 import { X, CheckCircle, AlertCircle } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useColors } from '@/hooks/useColors';
 
 export default function SignUp() {
+  const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(emailParam || '');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -69,6 +70,11 @@ export default function SignUp() {
         'Verification Code Sent', 
         'We\'ve sent a 6-digit verification code to your email address. Please check your inbox and enter the code below to create your account.'
       );
+      
+      // Auto-close the success modal after 2 seconds
+      setTimeout(() => {
+        setShowModal(false);
+      }, 2000);
     } catch (error: any) {
       showErrorModal('Failed to Send Code', error.message || 'Unable to send verification code. Please check your email address and try again.');
     }

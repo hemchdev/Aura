@@ -1158,7 +1158,7 @@ export default function CalendarTab() {
             </View>
 
             <Text style={styles.modalText}>
-              Are you sure you want to delete "{eventToDelete?.title}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{eventToDelete?.title}&quot;? This action cannot be undone.
             </Text>
 
             <View style={styles.modalActions}>

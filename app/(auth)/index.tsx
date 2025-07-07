@@ -23,6 +23,7 @@ export default function SignIn() {
   const [modalType, setModalType] = useState<'error' | 'success' | 'info'>('info');
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');
+  const [showRedirectModal, setShowRedirectModal] = useState(false);
   const { sendOTP, verifyOTP, loading, user, initialized } = useAuthStore();
   const router = useRouter();
   const colors = useColors();
@@ -41,12 +42,12 @@ export default function SignIn() {
     setShowModal(true);
   };
 
-  const showSuccessModal = (title: string, message: string) => {
-    setModalType('success');
-    setModalTitle(title);
-    setModalMessage(message);
-    setShowModal(true);
-  };
+  // const showSuccessModal = (title: string, message: string) => {
+  //   setModalType('success');
+  //   setModalTitle(title);
+  //   setModalMessage(message);
+  //   setShowModal(true);
+  // };
 
   const showInfoModal = (title: string, message: string) => {
     setModalType('info');
@@ -66,11 +67,36 @@ export default function SignIn() {
       setOtpSent(true);
       showInfoModal(
         'Verification Code Sent', 
-        'We\'ve sent a 6-digit verification code to your email address. Please check your inbox and enter the code below to sign in.'
+        'We&apos;ve sent a 6-digit verification code to your email address. Please check your inbox and enter the code below to sign in.'
       );
+      
+      // Auto-close the success modal after 2 seconds
+      setTimeout(() => {
+        setShowModal(false);
+      }, 2000);
     } catch (error: any) {
-      showErrorModal('Failed to Send Code', error.message || 'Unable to send verification code. Please check your email address and try again.');
+      // Check if the error indicates the user doesn't exist
+      const errorMessage = error.message.toLowerCase();
+      if (errorMessage.includes('signup') || 
+          errorMessage.includes('not allowed') || 
+          errorMessage.includes('user not found') ||
+          errorMessage.includes('only confirmed users') ||
+          errorMessage.includes('invalid email')) {
+        // Show redirect modal for new users
+        setShowRedirectModal(true);
+      } else {
+        showErrorModal('Failed to Send Code', error.message || 'Unable to send verification code. Please check your email address and try again.');
+      }
     }
+  };
+
+  const handleRedirectToSignUp = () => {
+    setShowRedirectModal(false);
+    // Pass the email as a parameter to pre-fill in sign-up
+    router.push({
+      pathname: '/(auth)/sign-up',
+      params: { email: email }
+    });
   };
 
   const handleVerifyOTP = async () => {
@@ -204,6 +230,22 @@ export default function SignIn() {
       fontSize: 16,
       fontWeight: '600',
     },
+    redirectModalActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 12,
+      width: '100%',
+    },
+    cancelButton: {
+      backgroundColor: colors.muted,
+      marginRight: 8,
+      flex: 1,
+    },
+    primaryButton: {
+      backgroundColor: colors.primary,
+      marginLeft: 8,
+      flex: 1,
+    },
   });
 
   return (
@@ -286,7 +328,7 @@ export default function SignIn() {
 
           <View style={styles.linkContainer}>
             <Text style={styles.linkText}>
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/(auth)/sign-up" style={styles.link}>
                 Sign Up
               </Link>
@@ -333,6 +375,52 @@ export default function SignIn() {
               >
                 <Text style={styles.modalButtonText}>OK</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Redirect to Sign Up Modal */}
+        <Modal
+          visible={showRedirectModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowRedirectModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Account Not Found</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowRedirectModal(false)}
+                >
+                  <X size={24} color={colors.cardForeground} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalIcon}>
+                <AlertCircle size={48} color={colors.primary} />
+              </View>
+
+              <Text style={styles.modalMessage}>
+                It looks like you don&apos;t have an account yet. Would you like to create one?
+              </Text>
+
+              <View style={styles.redirectModalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setShowRedirectModal(false)}
+                >
+                  <Text style={[styles.modalButtonText, { color: colors.cardForeground }]}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.primaryButton]}
+                  onPress={handleRedirectToSignUp}
+                >
+                  <Text style={[styles.modalButtonText, { color: colors.primaryForeground }]}>Sign Up</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>

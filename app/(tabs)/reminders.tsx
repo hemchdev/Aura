@@ -1323,7 +1323,7 @@ export default function RemindersTab() {
             </View>
 
             <Text style={styles.modalMessage}>
-              Are you sure you want to delete "{reminderToDelete?.title}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{reminderToDelete?.title}&quot;? This action cannot be undone.
             </Text>
 
             <View style={styles.modalActions}>
