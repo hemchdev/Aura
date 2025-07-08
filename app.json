@@ -84,7 +84,9 @@
                 "**/META-INF/androidx.loader_loader.version",
                 "**/META-INF/androidx.interpolator_interpolator.version",
                 "**/META-INF/androidx.cursoradapter_cursoradapter.version",
-                "**/META-INF/androidx.swiperefreshlayout_swiperefreshlayout.version"
+                "**/META-INF/androidx.swiperefreshlayout_swiperefreshlayout.version",
+                "**/META-INF/androidx.slidingpanelayout_slidingpanelayout.version",
+                "**/META-INF/androidx.slidingpanelayout_slidingpanelayout.version"
               ]
             }
           }
