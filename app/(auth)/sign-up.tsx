@@ -8,14 +8,20 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter, useLocalSearchParams } from 'expo-router';
-import { X, CheckCircle, AlertCircle } from 'lucide-react-native';
+import { X, CheckCircle, AlertCircle, Info } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useColors } from '@/hooks/useColors';
 
 export default function SignUp() {
+  // Get screen dimensions for responsive design
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const isTablet = screenWidth > 768;
+  const isLargeScreen = screenWidth > 1024;
+  
   const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
   const [name, setName] = useState('');
   const [email, setEmail] = useState(emailParam || '');
@@ -28,6 +34,50 @@ export default function SignUp() {
   const { sendOTP, verifyOTP, loading, user, initialized } = useAuthStore();
   const router = useRouter();
   const colors = useColors();
+
+  // Dynamic modal icons and colors based on status
+  const getModalIcon = (status: 'success' | 'error' | 'info') => {
+    const iconSize = isTablet ? 52 : 48;
+    switch (status) {
+      case 'success':
+        return <CheckCircle size={iconSize} color={colors.primary} />;
+      case 'error':
+        return <AlertCircle size={iconSize} color={colors.destructive} />;
+      case 'info':
+        return <Info size={iconSize} color={colors.primary} />;
+      default:
+        return <Info size={iconSize} color={colors.primary} />;
+    }
+  };
+
+  const getModalColors = (status: 'success' | 'error' | 'info') => {
+    switch (status) {
+      case 'success':
+        return {
+          iconColor: colors.primary,
+          titleColor: colors.cardForeground,
+          messageColor: colors.mutedForeground,
+        };
+      case 'error':
+        return {
+          iconColor: colors.destructive,
+          titleColor: colors.destructive,
+          messageColor: colors.mutedForeground,
+        };
+      case 'info':
+        return {
+          iconColor: colors.primary,
+          titleColor: colors.cardForeground,
+          messageColor: colors.mutedForeground,
+        };
+      default:
+        return {
+          iconColor: colors.primary,
+          titleColor: colors.cardForeground,
+          messageColor: colors.mutedForeground,
+        };
+    }
+  };
 
   // Redirect to main app if user becomes authenticated
   useEffect(() => {

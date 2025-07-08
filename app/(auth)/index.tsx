@@ -8,14 +8,20 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
-import { X, CheckCircle, AlertCircle } from 'lucide-react-native';
+import { X, CheckCircle, AlertCircle, Info } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useColors } from '@/hooks/useColors';
 
 export default function SignIn() {
+  // Get screen dimensions for responsive design
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const isTablet = screenWidth > 768;
+  const isLargeScreen = screenWidth > 1024;
+
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -27,6 +33,50 @@ export default function SignIn() {
   const { sendOTP, verifyOTP, loading, user, initialized } = useAuthStore();
   const router = useRouter();
   const colors = useColors();
+
+  // Dynamic modal icons and colors based on status
+  const getModalIcon = (status: 'success' | 'error' | 'info') => {
+    const iconSize = isTablet ? 52 : 48;
+    switch (status) {
+      case 'success':
+        return <CheckCircle size={iconSize} color={colors.primary} />;
+      case 'error':
+        return <AlertCircle size={iconSize} color={colors.destructive} />;
+      case 'info':
+        return <Info size={iconSize} color={colors.primary} />;
+      default:
+        return <Info size={iconSize} color={colors.primary} />;
+    }
+  };
+
+  const getModalColors = (status: 'success' | 'error' | 'info') => {
+    switch (status) {
+      case 'success':
+        return {
+          iconColor: colors.primary,
+          titleColor: colors.cardForeground,
+          messageColor: colors.mutedForeground,
+        };
+      case 'error':
+        return {
+          iconColor: colors.destructive,
+          titleColor: colors.destructive,
+          messageColor: colors.mutedForeground,
+        };
+      case 'info':
+        return {
+          iconColor: colors.primary,
+          titleColor: colors.cardForeground,
+          messageColor: colors.mutedForeground,
+        };
+      default:
+        return {
+          iconColor: colors.primary,
+          titleColor: colors.cardForeground,
+          messageColor: colors.mutedForeground,
+        };
+    }
+  };
 
   // Redirect to main app if user becomes authenticated
   useEffect(() => {
@@ -179,72 +229,95 @@ export default function SignIn() {
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
       justifyContent: 'center',
       alignItems: 'center',
-      padding: 20,
+      padding: isTablet ? 32 : 20,
     },
     modalContent: {
       backgroundColor: colors.card,
-      borderRadius: 16,
-      padding: 20,
+      borderRadius: isTablet ? 20 : 16,
+      padding: isTablet ? 28 : 24,
       width: '100%',
-      maxWidth: 400,
+      maxWidth: isTablet ? 500 : 400,
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 8,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 16,
+      elevation: 24,
     },
     modalHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       width: '100%',
-      marginBottom: 20,
+      marginBottom: isTablet ? 24 : 20,
     },
     modalTitle: {
-      fontSize: 20,
-      fontWeight: '600',
+      fontSize: isTablet ? 24 : 20,
+      fontWeight: '700',
       color: colors.cardForeground,
     },
     closeButton: {
-      padding: 4,
+      padding: isTablet ? 8 : 6,
+      borderRadius: isTablet ? 10 : 8,
+      backgroundColor: colors.muted,
     },
     modalIcon: {
-      marginBottom: 16,
+      marginBottom: isTablet ? 20 : 16,
     },
     modalMessage: {
-      fontSize: 16,
-      color: colors.cardForeground,
+      fontSize: isTablet ? 18 : 16,
+      color: colors.mutedForeground,
       textAlign: 'center',
-      lineHeight: 24,
-      marginBottom: 24,
+      lineHeight: isTablet ? 26 : 24,
+      marginBottom: isTablet ? 28 : 24,
     },
     modalButton: {
       backgroundColor: colors.primary,
-      borderRadius: 8,
-      paddingVertical: 12,
-      paddingHorizontal: 32,
-      minWidth: 100,
+      borderRadius: isTablet ? 12 : 10,
+      paddingVertical: isTablet ? 16 : 14,
+      paddingHorizontal: isTablet ? 36 : 32,
+      minWidth: isTablet ? 120 : 100,
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
     },
     modalButtonText: {
       color: colors.primaryForeground,
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       fontWeight: '600',
     },
     redirectModalActions: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 12,
+      flexDirection: isTablet ? 'row' : 'column',
+      justifyContent: isTablet ? 'space-between' : 'center',
+      gap: isTablet ? 12 : 8,
+      marginTop: isTablet ? 20 : 16,
       width: '100%',
     },
     cancelButton: {
       backgroundColor: colors.muted,
-      marginRight: 8,
-      flex: 1,
+      flex: isTablet ? 1 : undefined,
     },
     primaryButton: {
       backgroundColor: colors.primary,
-      marginLeft: 8,
-      flex: 1,
+      flex: isTablet ? 1 : undefined,
+    },
+    cancelButtonText: {
+      color: colors.cardForeground,
+    },
+    primaryButtonText: {
+      color: colors.primaryForeground,
     },
   });
 
@@ -346,25 +419,19 @@ export default function SignIn() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{modalTitle}</Text>
+                <Text style={[styles.modalTitle, { color: getModalColors(modalType).titleColor }]}>
+                  {modalTitle}
+                </Text>
                 <TouchableOpacity
                   style={styles.closeButton}
                   onPress={() => setShowModal(false)}
                 >
-                  <X size={24} color={colors.cardForeground} />
+                  <X size={isTablet ? 26 : 24} color={colors.cardForeground} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.modalIcon}>
-                {modalType === 'error' && (
-                  <AlertCircle size={48} color={colors.destructive} />
-                )}
-                {modalType === 'success' && (
-                  <CheckCircle size={48} color={colors.primary} />
-                )}
-                {modalType === 'info' && (
-                  <CheckCircle size={48} color={colors.primary} />
-                )}
+                {getModalIcon(modalType)}
               </View>
 
               <Text style={styles.modalMessage}>{modalMessage}</Text>
@@ -394,12 +461,12 @@ export default function SignIn() {
                   style={styles.closeButton}
                   onPress={() => setShowRedirectModal(false)}
                 >
-                  <X size={24} color={colors.cardForeground} />
+                  <X size={isTablet ? 26 : 24} color={colors.cardForeground} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.modalIcon}>
-                <AlertCircle size={48} color={colors.primary} />
+                <Info size={isTablet ? 52 : 48} color={colors.primary} />
               </View>
 
               <Text style={styles.modalMessage}>
@@ -411,14 +478,14 @@ export default function SignIn() {
                   style={[styles.modalButton, styles.cancelButton]}
                   onPress={() => setShowRedirectModal(false)}
                 >
-                  <Text style={[styles.modalButtonText, { color: colors.cardForeground }]}>Cancel</Text>
+                  <Text style={[styles.modalButtonText, styles.cancelButtonText]}>Cancel</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity
                   style={[styles.modalButton, styles.primaryButton]}
                   onPress={handleRedirectToSignUp}
                 >
-                  <Text style={[styles.modalButtonText, { color: colors.primaryForeground }]}>Sign Up</Text>
+                  <Text style={[styles.modalButtonText, styles.primaryButtonText]}>Sign Up</Text>
                 </TouchableOpacity>
               </View>
             </View>

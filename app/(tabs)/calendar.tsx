@@ -7,15 +7,17 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
-import { Plus, Edit, Trash2, Clock, MapPin, X, CheckCircle, AlertCircle } from 'lucide-react-native';
+import { Plus, Edit, Trash2, Clock, MapPin, X, CheckCircle, AlertCircle, Info, XCircle } from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
+import { notificationService } from '@/lib/notificationService';
 import type { Event } from '@/types/database';
 
 // Helper function for IST timezone
@@ -28,6 +30,10 @@ const getISTDate = () => {
 };
 
 export default function CalendarTab() {
+  // Get screen dimensions for responsive design
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const isTablet = screenWidth > 768;
+  const isLargeScreen = screenWidth > 1024;
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedDate, setSelectedDate] = useState(() => {
     // Get current date in IST
@@ -213,6 +219,19 @@ export default function CalendarTab() {
     setShowSuccessModal(true);
   };
 
+  const getModalIconAndColor = (type: 'success' | 'error' | 'warning') => {
+    switch (type) {
+      case 'success':
+        return { icon: CheckCircle, color: colors.success || '#22c55e' };
+      case 'error':
+        return { icon: XCircle, color: colors.destructive || '#ef4444' };
+      case 'warning':
+        return { icon: AlertCircle, color: colors.warning || '#f59e0b' };
+      default:
+        return { icon: Info, color: colors.primary };
+    }
+  };
+
   useEffect(() => {
     if (user) {
       loadEvents();
@@ -276,7 +295,7 @@ export default function CalendarTab() {
       // Calculate end time
       const endTime = new Date(selectedDateIST.getTime() + parseInt(newEvent.duration) * 60 * 1000);
 
-      const { error } = await supabase.from('events').insert({
+      const { data, error } = await supabase.from('events').insert({
         user_id: user.id,
         title: newEvent.title,
         description: newEvent.description || '',
@@ -284,9 +303,17 @@ export default function CalendarTab() {
         end_time: endTime.toISOString(),
         location: newEvent.location || '',
         all_day: false,
-      });
+      }).select().single();
 
       if (error) throw error;
+
+      // Schedule event reminder notification (15 minutes before event)
+      await notificationService.scheduleEventReminder(
+        data.id,
+        newEvent.title,
+        selectedDateIST,
+        15 // 15 minutes before
+      );
 
       // Reset form and close modal
       setNewEvent({
@@ -361,6 +388,14 @@ export default function CalendarTab() {
         .eq('id', selectedEvent.id);
 
       if (error) throw error;
+
+      // Schedule event reminder notification (15 minutes before event)
+      await notificationService.scheduleEventReminder(
+        selectedEvent.id,
+        newEvent.title,
+        startTime,
+        15 // 15 minutes before
+      );
 
       // Reset form and close modal
       setNewEvent({
@@ -608,127 +643,195 @@ export default function CalendarTab() {
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
       justifyContent: 'center',
       alignItems: 'center',
-      padding: 20,
+      padding: isTablet ? 32 : 20,
     },
     modalContent: {
       backgroundColor: colors.card,
-      borderRadius: 16,
-      padding: 20,
+      borderRadius: isTablet ? 24 : 20,
+      padding: isTablet ? 32 : 24,
       width: '100%',
-      maxWidth: 400,
-      alignItems: 'center', // Center align content for better modal appearance
+      maxWidth: isTablet ? 520 : 420,
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 20,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 25,
+      elevation: 25,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     modalHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 20,
-      width: '100%', // Ensure header takes full width
+      marginBottom: isTablet ? 24 : 20,
+      width: '100%',
     },
     modalTitle: {
-      fontSize: 20,
-      fontWeight: '600',
+      fontSize: isTablet ? 24 : 20,
+      fontWeight: '700',
       color: colors.cardForeground,
+      flex: 1,
     },
     closeButton: {
-      padding: 8,
+      padding: isTablet ? 12 : 8,
+      borderRadius: isTablet ? 24 : 20,
+      backgroundColor: colors.muted + '20',
+      marginLeft: 16,
     },
     modalText: {
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       color: colors.cardForeground,
-      marginBottom: 24,
-      lineHeight: 24,
+      marginBottom: isTablet ? 32 : 24,
+      lineHeight: isTablet ? 28 : 24,
       textAlign: 'center',
+      opacity: 0.9,
     },
     modalMessage: {
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       color: colors.cardForeground,
       textAlign: 'center',
-      lineHeight: 24,
-      marginBottom: 24,
+      lineHeight: isTablet ? 28 : 24,
+      marginBottom: isTablet ? 32 : 24,
+      opacity: 0.9,
     },
     modalIcon: {
-      marginBottom: 16,
-      alignSelf: 'center', // Center the icon
+      marginBottom: isTablet ? 24 : 20,
+      padding: isTablet ? 20 : 16,
+      borderRadius: isTablet ? 60 : 50,
+      backgroundColor: colors.background,
+      borderWidth: 2,
+      borderColor: colors.border,
+      alignSelf: 'center',
     },
     modalActions: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 12,
-      width: '100%', // Ensure actions take full width
+      marginTop: isTablet ? 16 : 12,
+      width: '100%',
+      gap: isTablet ? 16 : 12,
     },
     modalButton: {
-      borderRadius: 8,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      marginLeft: 12,
+      borderRadius: isTablet ? 16 : 12,
+      paddingVertical: isTablet ? 16 : 14,
+      paddingHorizontal: isTablet ? 24 : 20,
       flex: 1,
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 8,
     },
     cancelButton: {
       backgroundColor: colors.muted,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowOpacity: 0,
+      elevation: 0,
     },
     modalButtonText: {
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       fontWeight: '600',
+      letterSpacing: 0.5,
     },
     destructiveButton: {
       backgroundColor: colors.destructive,
+      shadowColor: colors.destructive,
     },
     primaryButton: {
       backgroundColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
     },
     input: {
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 16,
-      fontSize: 16,
+      borderRadius: isTablet ? 12 : 8,
+      padding: isTablet ? 16 : 12,
+      marginBottom: isTablet ? 20 : 16,
+      fontSize: isTablet ? 18 : 16,
       color: colors.cardForeground,
-      backgroundColor: resolvedTheme === 'dark' ? '#1E293B' : '#FFFFFF', // Custom background for inputs
-      width: '100%', // Ensure inputs take full width
+      backgroundColor: resolvedTheme === 'dark' ? '#1E293B' : '#FFFFFF',
+      width: '100%',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
     },
     textArea: {
-      height: 80,
+      height: isTablet ? 100 : 80,
       textAlignVertical: 'top',
     },
     inputLabel: {
-      fontSize: 14,
-      fontWeight: '500',
+      fontSize: isTablet ? 16 : 14,
+      fontWeight: '600',
       color: colors.cardForeground,
-      marginBottom: 8,
-      alignSelf: 'flex-start', // Left align labels even with centered modal
-      width: '100%', // Ensure labels take full width
+      marginBottom: isTablet ? 12 : 8,
+      alignSelf: 'flex-start',
+      width: '100%',
     },
     saveButton: {
       backgroundColor: colors.primary,
-      borderRadius: 8,
-      padding: 16,
+      borderRadius: isTablet ? 16 : 12,
+      padding: isTablet ? 20 : 16,
       alignItems: 'center',
-      marginTop: 8,
-      width: '100%', // Full width button
+      marginTop: isTablet ? 12 : 8,
+      width: '100%',
+      shadowColor: colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
     },
     saveButtonText: {
       color: colors.primaryForeground,
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       fontWeight: '600',
+      letterSpacing: 0.5,
     },
     timePickerButton: {
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 16,
+      borderRadius: isTablet ? 12 : 8,
+      padding: isTablet ? 16 : 12,
+      marginBottom: isTablet ? 20 : 16,
       backgroundColor: resolvedTheme === 'dark' ? '#1E293B' : '#FFFFFF',
       justifyContent: 'center',
-      width: '100%', // Full width
+      width: '100%',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
     },
     timePickerText: {
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       color: colors.cardForeground,
     },
     timePickerModal: {
@@ -1007,7 +1110,7 @@ export default function CalendarTab() {
                 style={styles.closeButton}
                 onPress={() => setShowAddModal(false)}
               >
-                <X size={24} color={colors.cardForeground} />
+                <X size={isTablet ? 24 : 20} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
@@ -1080,7 +1183,7 @@ export default function CalendarTab() {
                 style={styles.closeButton}
                 onPress={() => setShowEditModal(false)}
               >
-                <X size={24} color={colors.cardForeground} />
+                <X size={isTablet ? 24 : 20} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
@@ -1153,8 +1256,12 @@ export default function CalendarTab() {
                 style={styles.closeButton}
                 onPress={() => setShowDeleteModal(false)}
               >
-                <X size={24} color={colors.cardForeground} />
+                <X size={isTablet ? 24 : 20} color={colors.mutedForeground} />
               </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalIcon}>
+              <Trash2 size={isTablet ? 56 : 48} color={colors.destructive} />
             </View>
 
             <Text style={styles.modalText}>
@@ -1275,12 +1382,15 @@ export default function CalendarTab() {
                 style={styles.closeButton}
                 onPress={() => setShowErrorModal(false)}
               >
-                <X size={24} color={colors.cardForeground} />
+                <X size={isTablet ? 24 : 20} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalIcon}>
-              <AlertCircle size={48} color={colors.destructive} />
+              {(() => {
+                const { icon: IconComponent, color } = getModalIconAndColor('error');
+                return <IconComponent size={isTablet ? 56 : 48} color={color} />;
+              })()}
             </View>
 
             <Text style={styles.modalMessage}>{modalMessage}</Text>
@@ -1312,12 +1422,15 @@ export default function CalendarTab() {
                 style={styles.closeButton}
                 onPress={() => setShowSuccessModal(false)}
               >
-                <X size={24} color={colors.cardForeground} />
+                <X size={isTablet ? 24 : 20} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalIcon}>
-              <CheckCircle size={48} color={colors.primary} />
+              {(() => {
+                const { icon: IconComponent, color } = getModalIconAndColor('success');
+                return <IconComponent size={isTablet ? 56 : 48} color={color} />;
+              })()}
             </View>
 
             <Text style={styles.modalMessage}>{modalMessage}</Text>

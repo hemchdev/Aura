@@ -7,16 +7,22 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, Clock, Check, X, Save, Edit } from 'lucide-react-native';
+import { Plus, Clock, Check, X, Save, Edit, CheckCircle, AlertCircle, Info, XCircle, Trash2 } from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
+import { notificationService } from '@/lib/notificationService';
 import type { Reminder } from '@/types/database';
 
 export default function RemindersTab() {
+  // Get screen dimensions for responsive design
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const isTablet = screenWidth > 768;
+  const isLargeScreen = screenWidth > 1024;
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -44,6 +50,19 @@ export default function RemindersTab() {
       loadReminders();
     }
   }, [user]);
+
+  const getModalIconAndColor = (type: 'success' | 'error' | 'warning') => {
+    switch (type) {
+      case 'success':
+        return { icon: CheckCircle, color: colors.success || '#22c55e' };
+      case 'error':
+        return { icon: XCircle, color: colors.destructive || '#ef4444' };
+      case 'warning':
+        return { icon: AlertCircle, color: colors.warning || '#f59e0b' };
+      default:
+        return { icon: Info, color: colors.primary };
+    }
+  };
 
   // Reload reminders when tab is focused
   useFocusEffect(
@@ -104,15 +123,23 @@ export default function RemindersTab() {
       const remindAt = new Date(newReminder.date);
       remindAt.setHours(hours, minutes, 0, 0);
 
-      const { error } = await supabase.from('reminders').insert({
+      const { data, error } = await supabase.from('reminders').insert({
         user_id: user.id,
         title: newReminder.title,
         text: newReminder.text || newReminder.title,
         remind_at: remindAt.toISOString(),
         completed: false,
-      });
+      }).select().single();
 
       if (error) throw error;
+
+      // Schedule notification using notification service
+      await notificationService.scheduleReminderNotification(
+        data.id,
+        newReminder.title,
+        newReminder.text || newReminder.title,
+        remindAt
+      );
 
       // Reset form and close modal
       setNewReminder({
@@ -181,6 +208,14 @@ export default function RemindersTab() {
         .eq('id', selectedReminder.id);
 
       if (error) throw error;
+
+      // Schedule notification using notification service
+      await notificationService.scheduleReminderNotification(
+        selectedReminder.id,
+        newReminder.title,
+        newReminder.text || newReminder.title,
+        remindAt
+      );
 
       // Reset form and close modal
       setNewReminder({
@@ -737,96 +772,159 @@ export default function RemindersTab() {
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
       justifyContent: 'center',
       alignItems: 'center',
-      padding: 20,
+      padding: isTablet ? 32 : 20,
     },
     modalContent: {
       backgroundColor: colors.card,
-      borderRadius: 16,
-      padding: 20,
+      borderRadius: isTablet ? 24 : 20,
+      padding: isTablet ? 32 : 24,
       width: '100%',
-      maxWidth: 400,
+      maxWidth: isTablet ? 520 : 420,
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 20,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 25,
+      elevation: 25,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     modalHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 20,
+      marginBottom: isTablet ? 24 : 20,
+      width: '100%',
     },
     modalTitle: {
-      fontSize: 20,
-      fontWeight: '600',
+      fontSize: isTablet ? 24 : 20,
+      fontWeight: '700',
       color: colors.cardForeground,
+      flex: 1,
     },
     closeButton: {
-      padding: 8,
+      padding: isTablet ? 12 : 8,
+      borderRadius: isTablet ? 24 : 20,
+      backgroundColor: colors.muted + '20',
+      marginLeft: 16,
+    },
+    modalIcon: {
+      marginBottom: isTablet ? 24 : 20,
+      padding: isTablet ? 20 : 16,
+      borderRadius: isTablet ? 60 : 50,
+      backgroundColor: colors.background,
+      borderWidth: 2,
+      borderColor: colors.border,
+      alignSelf: 'center',
     },
     input: {
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 16,
-      fontSize: 16,
+      borderRadius: isTablet ? 12 : 8,
+      padding: isTablet ? 16 : 12,
+      marginBottom: isTablet ? 20 : 16,
+      fontSize: isTablet ? 18 : 16,
       color: colors.cardForeground,
       backgroundColor: colors.background,
+      width: '100%',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
     },
     textArea: {
-      height: 80,
+      height: isTablet ? 100 : 80,
       textAlignVertical: 'top',
     },
     inputLabel: {
-      fontSize: 14,
-      fontWeight: '500',
+      fontSize: isTablet ? 16 : 14,
+      fontWeight: '600',
       color: colors.cardForeground,
-      marginBottom: 8,
+      marginBottom: isTablet ? 12 : 8,
+      alignSelf: 'flex-start',
+      width: '100%',
     },
     saveButton: {
       backgroundColor: colors.primary,
-      borderRadius: 8,
-      padding: 16,
+      borderRadius: isTablet ? 16 : 12,
+      padding: isTablet ? 20 : 16,
       alignItems: 'center',
-      marginTop: 8,
+      marginTop: isTablet ? 12 : 8,
+      width: '100%',
+      shadowColor: colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
     },
     saveButtonText: {
       color: colors.primaryForeground,
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       fontWeight: '600',
+      letterSpacing: 0.5,
     },
     modalMessage: {
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       color: colors.cardForeground,
-      marginBottom: 24,
-      lineHeight: 24,
+      marginBottom: isTablet ? 32 : 24,
+      lineHeight: isTablet ? 28 : 24,
       textAlign: 'center',
+      opacity: 0.9,
     },
     modalActions: {
       flexDirection: 'row',
-      justifyContent: 'flex-end',
-      marginTop: 12,
+      justifyContent: 'space-between',
+      marginTop: isTablet ? 16 : 12,
+      width: '100%',
+      gap: isTablet ? 16 : 12,
     },
     modalButton: {
-      borderRadius: 8,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      marginLeft: 12,
+      borderRadius: isTablet ? 16 : 12,
+      paddingVertical: isTablet ? 16 : 14,
+      paddingHorizontal: isTablet ? 24 : 20,
       flex: 1,
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 8,
     },
     cancelButton: {
       backgroundColor: colors.muted,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowOpacity: 0,
+      elevation: 0,
     },
     modalButtonText: {
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       fontWeight: '600',
+      letterSpacing: 0.5,
     },
     destructiveButton: {
       backgroundColor: colors.destructive,
+      shadowColor: colors.destructive,
     },
     primaryButton: {
       backgroundColor: colors.primary,
+      shadowColor: colors.primary,
     },
     datePickerButton: {
       borderWidth: 1,

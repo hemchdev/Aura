@@ -9,6 +9,7 @@ import {
   Switch,
   Modal,
   TextInput,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -18,13 +19,18 @@ import {
   Bell, 
   Mic, 
   LogOut, 
+  X, 
+  Settings,
+  Save,
+  AlertCircle,
+  CheckCircle,
+  Info,
+  XCircle,
   ChevronRight,
   Sun,
   Moon,
   Smartphone,
-  Edit3,
-  Save,
-  X
+  Edit3
 } from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -33,6 +39,10 @@ import { notificationService } from '@/lib/notificationService';
 import { speechService } from '@/lib/speech';
 
 export default function SettingsTab() {
+  // Get screen dimensions for responsive design
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  const isTablet = screenWidth > 768;
+  const isLargeScreen = screenWidth > 1024;
   const colors = useColors();
   const { user, profile, signOut, updateProfile } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
@@ -45,6 +55,61 @@ export default function SettingsTab() {
   });
   const [saving, setSaving] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+
+  // Dynamic modal icons and colors based on status
+  const getModalIcon = (status: 'success' | 'error' | 'warning' | 'info') => {
+    const iconSize = isTablet ? 28 : 24;
+    switch (status) {
+      case 'success':
+        return <CheckCircle size={iconSize} color={colors.primary} />;
+      case 'error':
+        return <XCircle size={iconSize} color={colors.destructive} />;
+      case 'warning':
+        return <AlertCircle size={iconSize} color="#f59e0b" />;
+      case 'info':
+        return <Info size={iconSize} color={colors.primary} />;
+      default:
+        return <Info size={iconSize} color={colors.primary} />;
+    }
+  };
+
+  const getModalColors = (status: 'success' | 'error' | 'warning' | 'info') => {
+    switch (status) {
+      case 'success':
+        return {
+          iconColor: colors.primary,
+          titleColor: colors.cardForeground,
+          messageColor: colors.mutedForeground,
+        };
+      case 'error':
+        return {
+          iconColor: colors.destructive,
+          titleColor: colors.destructive,
+          messageColor: colors.mutedForeground,
+        };
+      case 'warning':
+        return {
+          iconColor: '#f59e0b',
+          titleColor: '#f59e0b',
+          messageColor: colors.mutedForeground,
+        };
+      case 'info':
+        return {
+          iconColor: colors.primary,
+          titleColor: colors.cardForeground,
+          messageColor: colors.mutedForeground,
+        };
+      default:
+        return {
+          iconColor: colors.primary,
+          titleColor: colors.cardForeground,
+          messageColor: colors.mutedForeground,
+        };
+    }
+  };
 
   const openEditProfile = () => {
     if (profile) {
@@ -58,7 +123,8 @@ export default function SettingsTab() {
 
   const saveProfile = async () => {
     if (!editingProfile.name.trim()) {
-      Alert.alert('Error', 'Name is required');
+      setModalMessage('Name is required');
+      setShowErrorModal(true);
       return;
     }
 
@@ -70,9 +136,11 @@ export default function SettingsTab() {
       });
       
       setShowEditProfile(false);
-      Alert.alert('Success', 'Profile updated successfully!');
+      setModalMessage('Profile updated successfully!');
+      setShowSuccessModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update profile');
+      setModalMessage(error.message || 'Failed to update profile');
+      setShowErrorModal(true);
     } finally {
       setSaving(false);
     }
@@ -89,7 +157,8 @@ export default function SettingsTab() {
       // Force navigation to auth screen after successful sign out
       router.replace('/(auth)');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to sign out');
+      setModalMessage(error.message || 'Failed to sign out');
+      setShowErrorModal(true);
       setShowSignOutModal(false);
     }
   };
@@ -112,7 +181,8 @@ export default function SettingsTab() {
 
   const handleNotificationToggle = async (enabled: boolean) => {
     if (!profile) {
-      Alert.alert('Error', 'Profile not loaded. Please try again.');
+      setModalMessage('Profile not loaded. Please try again.');
+      setShowErrorModal(true);
       return;
     }
 
@@ -135,7 +205,8 @@ export default function SettingsTab() {
       
     } catch (error: any) {
       console.error('Failed to update notification setting:', error);
-      Alert.alert('Error', 'Failed to update notification setting. Please try again.');
+      setModalMessage('Failed to update notification setting. Please try again.');
+      setShowErrorModal(true);
       
       // Revert the optimistic update if needed
       try {
@@ -153,7 +224,8 @@ export default function SettingsTab() {
 
   const handleVoiceToggle = async (enabled: boolean) => {
     if (!profile) {
-      Alert.alert('Error', 'Profile not loaded. Please try again.');
+      setModalMessage('Profile not loaded. Please try again.');
+      setShowErrorModal(true);
       return;
     }
 
@@ -178,7 +250,8 @@ export default function SettingsTab() {
       
     } catch (error: any) {
       console.error('Failed to update voice setting:', error);
-      Alert.alert('Error', 'Failed to update voice setting. Please try again.');
+      setModalMessage('Failed to update voice setting. Please try again.');
+      setShowErrorModal(true);
     }
   };
 
@@ -320,31 +393,52 @@ export default function SettingsTab() {
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
       justifyContent: 'center',
       alignItems: 'center',
-      padding: 20,
+      padding: isTablet ? 32 : 20,
     },
     modalContent: {
       backgroundColor: colors.card,
-      borderRadius: 16,
-      padding: 20,
+      borderRadius: isTablet ? 20 : 16,
+      padding: isTablet ? 28 : 24,
       width: '100%',
-      maxWidth: 400,
+      maxWidth: isTablet ? 500 : 400,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 8,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 16,
+      elevation: 24,
     },
     modalHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 20,
+      marginBottom: isTablet ? 24 : 20,
     },
     modalTitle: {
-      fontSize: 20,
+      fontSize: isTablet ? 24 : 20,
       fontWeight: '700',
       color: colors.cardForeground,
     },
+    modalIcon: {
+      alignItems: 'center',
+      marginBottom: isTablet ? 20 : 16,
+    },
+    modalMessage: {
+      fontSize: isTablet ? 18 : 16,
+      color: colors.mutedForeground,
+      textAlign: 'center',
+      lineHeight: isTablet ? 26 : 24,
+      marginBottom: isTablet ? 28 : 24,
+    },
     closeButton: {
-      padding: 4,
+      padding: isTablet ? 8 : 6,
+      borderRadius: isTablet ? 10 : 8,
+      backgroundColor: colors.muted,
     },
     inputContainer: {
       marginBottom: 16,
@@ -398,25 +492,48 @@ export default function SettingsTab() {
       lineHeight: 24,
     },
     modalActions: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      marginTop: 20,
+      flexDirection: isTablet ? 'row' : 'column',
+      justifyContent: isTablet ? 'flex-end' : 'center',
+      gap: isTablet ? 12 : 8,
+      marginTop: isTablet ? 24 : 20,
     },
     modalButton: {
-      borderRadius: 8,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      marginLeft: 12,
+      borderRadius: isTablet ? 12 : 10,
+      paddingVertical: isTablet ? 16 : 14,
+      paddingHorizontal: isTablet ? 24 : 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: isTablet ? 120 : 100,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    primaryButton: {
+      backgroundColor: colors.primary,
     },
     cancelButton: {
       backgroundColor: colors.muted,
     },
-    modalButtonText: {
-      fontSize: 16,
-      fontWeight: '600',
-    },
     destructiveButton: {
       backgroundColor: colors.destructive,
+    },
+    modalButtonText: {
+      fontSize: isTablet ? 18 : 16,
+      fontWeight: '600',
+    },
+    primaryButtonText: {
+      color: colors.primaryForeground,
+    },
+    cancelButtonText: {
+      color: colors.cardForeground,
+    },
+    destructiveButtonText: {
+      color: colors.destructiveForeground,
     },
   });
 
@@ -569,7 +686,7 @@ export default function SettingsTab() {
                 onPress={() => setShowEditProfile(false)}
                 style={styles.closeButton}
               >
-                <X size={24} color={colors.cardForeground} />
+                <X size={isTablet ? 26 : 24} color={colors.cardForeground} />
               </TouchableOpacity>
             </View>
 
@@ -602,7 +719,7 @@ export default function SettingsTab() {
               onPress={saveProfile}
               disabled={saving}
             >
-              <Save size={18} color={colors.primaryForeground} />
+              <Save size={isTablet ? 20 : 18} color={colors.primaryForeground} />
               <Text style={styles.saveButtonText}>
                 {saving ? 'Saving...' : 'Save Changes'}
               </Text>
@@ -620,16 +737,22 @@ export default function SettingsTab() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Sign Out</Text>
+              <Text style={[styles.modalTitle, { color: getModalColors('warning').titleColor }]}>
+                Sign Out
+              </Text>
               <TouchableOpacity
                 onPress={() => setShowSignOutModal(false)}
                 style={styles.closeButton}
               >
-                <X size={24} color={colors.cardForeground} />
+                <X size={isTablet ? 26 : 24} color={colors.cardForeground} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalText}>
+            <View style={styles.modalIcon}>
+              {getModalIcon('warning')}
+            </View>
+
+            <Text style={styles.modalMessage}>
               Are you sure you want to sign out of your account?
             </Text>
 
@@ -638,7 +761,7 @@ export default function SettingsTab() {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowSignOutModal(false)}
               >
-                <Text style={[styles.modalButtonText, { color: colors.cardForeground }]}>
+                <Text style={[styles.modalButtonText, styles.cancelButtonText]}>
                   Cancel
                 </Text>
               </TouchableOpacity>
@@ -646,8 +769,94 @@ export default function SettingsTab() {
                 style={[styles.modalButton, styles.destructiveButton]}
                 onPress={handleConfirmSignOut}
               >
-                <Text style={[styles.modalButtonText, { color: colors.destructiveForeground }]}>
+                <Text style={[styles.modalButtonText, styles.destructiveButtonText]}>
                   Sign Out
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: getModalColors('success').titleColor }]}>
+                Success
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowSuccessModal(false)}
+                style={styles.closeButton}
+              >
+                <X size={isTablet ? 26 : 24} color={colors.cardForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalIcon}>
+              {getModalIcon('success')}
+            </View>
+
+            <Text style={styles.modalMessage}>
+              {modalMessage}
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.primaryButton]}
+                onPress={() => setShowSuccessModal(false)}
+              >
+                <Text style={[styles.modalButtonText, styles.primaryButtonText]}>
+                  OK
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={showErrorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: getModalColors('error').titleColor }]}>
+                Error
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowErrorModal(false)}
+                style={styles.closeButton}
+              >
+                <X size={isTablet ? 26 : 24} color={colors.cardForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalIcon}>
+              {getModalIcon('error')}
+            </View>
+
+            <Text style={styles.modalMessage}>
+              {modalMessage}
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.primaryButton]}
+                onPress={() => setShowErrorModal(false)}
+              >
+                <Text style={[styles.modalButtonText, styles.primaryButtonText]}>
+                  OK
                 </Text>
               </TouchableOpacity>
             </View>

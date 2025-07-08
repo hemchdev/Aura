@@ -10,9 +10,10 @@ import {
   Modal,
   Clipboard,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Mic, Send, MicOff, X, AlertCircle, Calendar, Clock, Copy, Edit3, MoreHorizontal, Trash2 } from 'lucide-react-native';
+import { Mic, Send, MicOff, X, AlertCircle, Calendar, Clock, Copy, Edit3, MoreHorizontal, Trash2, CheckCircle, XCircle, Info } from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { geminiService } from '@/lib/gemini';
@@ -49,15 +50,29 @@ export default function AssistantTab() {
   const [recordingTranscript, setRecordingTranscript] = useState('');
   const [showRecordingModal, setShowRecordingModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [screenDimensions, setScreenDimensions] = useState(() => Dimensions.get('window'));
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   const { user } = useAuthStore();
   const colors = useColors();
+  
+  // Get screen dimensions for responsive design
+  const { width: screenWidth, height: screenHeight } = screenDimensions;
+  const isTablet = screenWidth > 768;
+  const isLargeScreen = screenWidth > 1024;
+  const isPhonePortrait = screenWidth < 480 && screenHeight > screenWidth;
+  const isPhoneLandscape = screenWidth >= 480 && screenWidth < 768 && screenWidth > screenHeight;
 
   useEffect(() => {
     loadChatHistory();
     loadUserProfile();
     initializeNotifications();
+    
+    // Listen for dimension changes (orientation, etc.)
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      // Update screen dimensions to trigger re-render with new responsive values
+      setScreenDimensions(window);
+    });
     
     return () => {
       // Clean up speech recognition resources
@@ -69,6 +84,9 @@ export default function AssistantTab() {
       if (recordingTimer) {
         clearInterval(recordingTimer);
       }
+      
+      // Clean up dimension listener
+      subscription?.remove();
     };
   }, []);
 
@@ -184,6 +202,20 @@ export default function AssistantTab() {
     setModalTitle(title);
     setModalMessage(message);
     setShowModal(true);
+  };
+
+  const getModalIconAndColor = (title: string) => {
+    const lowerTitle = title.toLowerCase();
+    
+    if (lowerTitle.includes('success') || lowerTitle.includes('completed') || lowerTitle.includes('created') || lowerTitle.includes('updated') || lowerTitle.includes('saved')) {
+      return { icon: CheckCircle, color: colors.success || '#22c55e' };
+    } else if (lowerTitle.includes('error') || lowerTitle.includes('failed') || lowerTitle.includes('delete')) {
+      return { icon: XCircle, color: colors.destructive || '#ef4444' };
+    } else if (lowerTitle.includes('warning') || lowerTitle.includes('disabled')) {
+      return { icon: AlertCircle, color: colors.warning || '#f59e0b' };
+    } else {
+      return { icon: Info, color: colors.primary };
+    }
   };
 
   const loadChatHistory = async () => {
@@ -1276,6 +1308,11 @@ export default function AssistantTab() {
   };
 
   const renderMarkdownText = (text: string, textStyle: any) => {
+    // Safety check for text
+    if (!text || typeof text !== 'string') {
+      return text || '';
+    }
+
     // Split text by markdown patterns and render accordingly
     const parts = [];
     let lastIndex = 0;
@@ -1287,39 +1324,42 @@ export default function AssistantTab() {
     while ((match = markdownRegex.exec(text)) !== null) {
       // Add text before the match
       if (match.index > lastIndex) {
-        parts.push(
-          <Text key={`text-${lastIndex}`}>
-            {text.substring(lastIndex, match.index)}
-          </Text>
-        );
+        const beforeText = text.substring(lastIndex, match.index);
+        if (beforeText) {
+          parts.push(
+            <Text key={`text-${lastIndex}`} style={textStyle}>
+              {beforeText}
+            </Text>
+          );
+        }
       }
       
       // Add the formatted text
       if (match[2]) {
         // Bold text (**text**)
         parts.push(
-          <Text key={`bold-${match.index}`} style={{ fontWeight: 'bold' }}>
+          <Text key={`bold-${match.index}`} style={[textStyle, { fontWeight: 'bold' }]}>
             {match[2]}
           </Text>
         );
       } else if (match[3]) {
         // Italic text (*text*)
         parts.push(
-          <Text key={`italic-${match.index}`} style={{ fontStyle: 'italic' }}>
+          <Text key={`italic-${match.index}`} style={[textStyle, { fontStyle: 'italic' }]}>
             {match[3]}
           </Text>
         );
       } else if (match[4]) {
         // Code text (`text`)
         parts.push(
-          <Text key={`code-${match.index}`} style={{ 
+          <Text key={`code-${match.index}`} style={[textStyle, { 
             fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
             backgroundColor: colors.muted,
             paddingHorizontal: 4,
             paddingVertical: 2,
             borderRadius: 4,
-            fontSize: textStyle.fontSize - 1
-          }}>
+            fontSize: (textStyle.fontSize || 16) - 1
+          }]}>
             {match[4]}
           </Text>
         );
@@ -1330,14 +1370,26 @@ export default function AssistantTab() {
     
     // Add remaining text
     if (lastIndex < text.length) {
-      parts.push(
-        <Text key={`text-${lastIndex}`}>
-          {text.substring(lastIndex)}
+      const remainingText = text.substring(lastIndex);
+      if (remainingText) {
+        parts.push(
+          <Text key={`text-${lastIndex}`} style={textStyle}>
+            {remainingText}
+          </Text>
+        );
+      }
+    }
+    
+    // If no markdown was found, return the original text with proper styling
+    if (parts.length === 0) {
+      return (
+        <Text style={textStyle}>
+          {text}
         </Text>
       );
     }
     
-    return parts.length > 0 ? parts : text;
+    return parts;
   };
 
   const deleteMessage = async (messageId: string) => {
@@ -1419,15 +1471,18 @@ export default function AssistantTab() {
     },
     messagesContainer: {
       flex: 1,
-      paddingHorizontal: 16,
-      paddingTop: 16,
-      paddingBottom: 16,
+      paddingHorizontal: isTablet ? 24 : 16,
+      paddingTop: isTablet ? 24 : 16,
+      paddingBottom: isTablet ? 24 : 16,
     },
     messageContainer: {
-      marginBottom: 16,
-      maxWidth: '85%',
+      marginBottom: isTablet ? 20 : 16,
+      maxWidth: isLargeScreen ? '55%' : isTablet ? '65%' : isPhoneLandscape ? '75%' : '85%',
+      minWidth: isLargeScreen ? '20%' : isTablet ? '25%' : isPhoneLandscape ? '25%' : '30%',
       width: 'auto',
       flexShrink: 1,
+      minHeight: isTablet ? 52 : 44,
+      justifyContent: 'center',
     },
     userMessage: {
       alignSelf: 'flex-end',
@@ -1436,25 +1491,41 @@ export default function AssistantTab() {
       alignSelf: 'flex-start',
     },
     messageBubble: {
-      padding: 12,
-      borderRadius: 16,
+      padding: isLargeScreen ? 24 : isTablet ? 20 : isPhoneLandscape ? 14 : 16,
+      borderRadius: isLargeScreen ? 28 : isTablet ? 24 : isPhoneLandscape ? 18 : 20,
       flex: 1,
       maxWidth: '100%',
+      minHeight: isLargeScreen ? 60 : isTablet ? 52 : isPhoneLandscape ? 40 : 44,
+      minWidth: isLargeScreen ? 100 : isTablet ? 80 : isPhoneLandscape ? 50 : 60,
+      justifyContent: 'center',
+      alignSelf: 'stretch',
     },
     userBubble: {
       backgroundColor: colors.primary,
+      marginLeft: isLargeScreen ? 60 : isTablet ? 40 : isPhoneLandscape ? 30 : 20,
     },
     assistantBubble: {
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
+      marginRight: isLargeScreen ? 60 : isTablet ? 40 : isPhoneLandscape ? 30 : 20,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 1,
     },
     messageText: {
-      fontSize: 16,
-      lineHeight: 22,
+      fontSize: isLargeScreen ? 20 : isTablet ? 18 : isPhoneLandscape ? 15 : 16,
+      lineHeight: isLargeScreen ? 32 : isTablet ? 28 : isPhoneLandscape ? 22 : 24,
       flexWrap: 'wrap',
       flexShrink: 1,
       textAlign: 'left',
+      minHeight: isLargeScreen ? 32 : isTablet ? 28 : isPhoneLandscape ? 22 : 24,
+      letterSpacing: 0.2,
     },
     userText: {
       color: colors.primaryForeground,
@@ -1463,46 +1534,51 @@ export default function AssistantTab() {
       color: colors.cardForeground,
     },
     timestamp: {
-      fontSize: 12,
+      fontSize: isLargeScreen ? 16 : isTablet ? 14 : isPhoneLandscape ? 11 : 12,
       color: colors.mutedForeground,
-      marginTop: 4,
+      marginTop: isLargeScreen ? 12 : isTablet ? 8 : isPhoneLandscape ? 3 : 4,
+      paddingHorizontal: isLargeScreen ? 24 : isTablet ? 20 : isPhoneLandscape ? 14 : 16,
     },
     inputContainer: {
       flexDirection: 'row',
-      padding: 16,
+      padding: isTablet ? 20 : 16,
       borderTopWidth: 1,
       borderTopColor: colors.border,
       alignItems: 'flex-end',
+      maxWidth: isLargeScreen ? 800 : '100%',
+      alignSelf: 'center',
+      width: '100%',
     },
     textInput: {
       flex: 1,
-      borderRadius: 20,
+      borderRadius: isTablet ? 24 : 20,
       backgroundColor: colors.input,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      marginRight: 8,
-      maxHeight: 100,
+      paddingHorizontal: isTablet ? 20 : 16,
+      paddingVertical: isTablet ? 16 : 12,
+      marginRight: isTablet ? 12 : 8,
+      maxHeight: isTablet ? 120 : 100,
       color: colors.foreground,
       borderWidth: 1,
       borderColor: colors.border,
+      fontSize: isTablet ? 18 : 16,
     },
     micButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: isTablet ? 52 : 44,
+      height: isTablet ? 52 : 44,
+      borderRadius: isTablet ? 26 : 22,
       backgroundColor: colors.primary,
       justifyContent: 'center',
       alignItems: 'center',
-      marginLeft: 8,
+      marginLeft: isTablet ? 12 : 8,
     },
     sendButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: isTablet ? 52 : 44,
+      height: isTablet ? 52 : 44,
+      borderRadius: isTablet ? 26 : 22,
       backgroundColor: colors.primary,
       justifyContent: 'center',
       alignItems: 'center',
-      marginLeft: 8,
+      marginLeft: isTablet ? 12 : 8,
     },
     listeningButton: {
       backgroundColor: colors.error,
@@ -1516,56 +1592,85 @@ export default function AssistantTab() {
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
       justifyContent: 'center',
       alignItems: 'center',
-      padding: 20,
+      padding: isTablet ? 32 : 20,
     },
     modalContent: {
       backgroundColor: colors.card,
-      borderRadius: 16,
-      padding: 20,
+      borderRadius: isTablet ? 24 : 20,
+      padding: isTablet ? 32 : 24,
       width: '100%',
-      maxWidth: 400,
+      maxWidth: isTablet ? 480 : 400,
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 20,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 25,
+      elevation: 25,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     modalHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       width: '100%',
-      marginBottom: 20,
+      marginBottom: isTablet ? 24 : 20,
     },
     modalTitle: {
-      fontSize: 20,
-      fontWeight: '600',
+      fontSize: isTablet ? 24 : 20,
+      fontWeight: '700',
       color: colors.cardForeground,
+      flex: 1,
     },
     closeButton: {
-      padding: 4,
+      padding: isTablet ? 12 : 8,
+      borderRadius: isTablet ? 24 : 20,
+      backgroundColor: colors.muted + '20',
+      marginLeft: 16,
     },
     modalIcon: {
-      marginBottom: 16,
+      marginBottom: isTablet ? 24 : 20,
+      padding: isTablet ? 20 : 16,
+      borderRadius: isTablet ? 60 : 50,
+      backgroundColor: colors.background,
+      borderWidth: 2,
+      borderColor: colors.border,
     },
     modalMessage: {
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       color: colors.cardForeground,
       textAlign: 'center',
-      lineHeight: 24,
-      marginBottom: 24,
+      lineHeight: isTablet ? 28 : 24,
+      marginBottom: isTablet ? 32 : 24,
+      opacity: 0.9,
     },
     modalButton: {
       backgroundColor: colors.primary,
-      borderRadius: 8,
-      paddingVertical: 12,
-      paddingHorizontal: 32,
-      flex: 1,
+      borderRadius: isTablet ? 16 : 12,
+      paddingVertical: isTablet ? 16 : 14,
+      paddingHorizontal: isTablet ? 40 : 32,
+      minWidth: isTablet ? 140 : 120,
       alignItems: 'center',
+      shadowColor: colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
     },
     modalButtonText: {
       color: colors.primaryForeground,
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       fontWeight: '600',
+      letterSpacing: 0.5,
     },
     quickActionsContainer: {
       paddingHorizontal: 16,
@@ -1593,19 +1698,20 @@ export default function AssistantTab() {
     messageRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: 8,
+      gap: isLargeScreen ? 16 : isTablet ? 12 : isPhoneLandscape ? 6 : 8,
       maxWidth: '100%',
       flexShrink: 1,
+      minHeight: isLargeScreen ? 60 : isTablet ? 52 : isPhoneLandscape ? 40 : 44,
     },
     messageActions: {
-      padding: 8,
-      marginTop: 8,
+      padding: isLargeScreen ? 16 : isTablet ? 12 : isPhoneLandscape ? 6 : 8,
+      marginTop: isLargeScreen ? 16 : isTablet ? 12 : isPhoneLandscape ? 6 : 8,
       flexShrink: 0,
-      width: 32,
-      height: 32,
+      width: isLargeScreen ? 48 : isTablet ? 40 : isPhoneLandscape ? 28 : 32,
+      height: isLargeScreen ? 48 : isTablet ? 40 : isPhoneLandscape ? 28 : 32,
       justifyContent: 'center',
       alignItems: 'center',
-      borderRadius: 16,
+      borderRadius: isLargeScreen ? 24 : isTablet ? 20 : isPhoneLandscape ? 14 : 16,
       backgroundColor: colors.muted + '20',
     },
     actionsMenu: {
@@ -1714,169 +1820,212 @@ export default function AssistantTab() {
       backgroundColor: 'rgba(0, 0, 0, 0.7)',
       justifyContent: 'center',
       alignItems: 'center',
+      padding: isTablet ? 32 : 20,
     },
     recordingModalContent: {
       backgroundColor: colors.card,
-      margin: 20,
-      borderRadius: 20,
-      padding: 24,
+      borderRadius: isTablet ? 32 : 24,
+      padding: isTablet ? 40 : 32,
       alignItems: 'center',
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
-        height: 2,
+        height: 25,
       },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-      elevation: 5,
-      width: '90%',
-      maxWidth: 400,
+      shadowOpacity: 0.35,
+      shadowRadius: 35,
+      elevation: 35,
+      width: '100%',
+      maxWidth: isTablet ? 520 : 420,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     recordingHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       width: '100%',
-      marginBottom: 24,
+      marginBottom: isTablet ? 32 : 24,
     },
     recordingTitle: {
-      fontSize: 20,
-      fontWeight: '600',
+      fontSize: isTablet ? 24 : 20,
+      fontWeight: '700',
       color: colors.cardForeground,
+      flex: 1,
     },
     recordingCloseButton: {
-      padding: 4,
+      padding: isTablet ? 12 : 8,
+      borderRadius: isTablet ? 24 : 20,
+      backgroundColor: colors.muted + '20',
+      marginLeft: 16,
     },
     recordingAnimation: {
       position: 'relative',
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 24,
+      marginBottom: isTablet ? 32 : 24,
     },
     microphoneIcon: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: colors.card,
-      borderWidth: 2,
+      width: isTablet ? 100 : 80,
+      height: isTablet ? 100 : 80,
+      borderRadius: isTablet ? 50 : 40,
+      backgroundColor: colors.background,
+      borderWidth: 3,
       borderColor: colors.border,
       justifyContent: 'center',
       alignItems: 'center',
       zIndex: 2,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 8,
+      },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      elevation: 12,
     },
     microphoneActive: {
-      backgroundColor: colors.primary + '20',
+      backgroundColor: colors.primary + '15',
       borderColor: colors.primary,
+      shadowColor: colors.primary,
     },
     pulseAnimation: {
       position: 'absolute',
-      width: 80,
-      height: 80,
+      width: isTablet ? 100 : 80,
+      height: isTablet ? 100 : 80,
     },
     pulseRing: {
       position: 'absolute',
       borderWidth: 2,
       borderColor: colors.primary,
       borderRadius: 50,
-      opacity: 0.6,
+      opacity: 0.4,
     },
     pulseRing1: {
-      width: 100,
-      height: 100,
-      top: -10,
-      left: -10,
+      width: isTablet ? 120 : 100,
+      height: isTablet ? 120 : 100,
+      top: isTablet ? -10 : -10,
+      left: isTablet ? -10 : -10,
     },
     pulseRing2: {
-      width: 120,
-      height: 120,
-      top: -20,
-      left: -20,
+      width: isTablet ? 150 : 120,
+      height: isTablet ? 150 : 120,
+      top: isTablet ? -25 : -20,
+      left: isTablet ? -25 : -20,
     },
     pulseRing3: {
-      width: 140,
-      height: 140,
-      top: -30,
-      left: -30,
+      width: isTablet ? 180 : 140,
+      height: isTablet ? 180 : 140,
+      top: isTablet ? -40 : -30,
+      left: isTablet ? -40 : -30,
     },
     recordingTime: {
-      fontSize: 24,
-      fontWeight: '600',
+      fontSize: isTablet ? 32 : 24,
+      fontWeight: '700',
       color: colors.primary,
-      marginBottom: 20,
+      marginBottom: isTablet ? 24 : 20,
       fontVariant: ['tabular-nums'],
+      letterSpacing: 1,
     },
     transcriptContainer: {
       width: '100%',
-      marginBottom: 24,
+      marginBottom: isTablet ? 32 : 24,
     },
     transcriptLabel: {
-      fontSize: 14,
-      fontWeight: '500',
+      fontSize: isTablet ? 16 : 14,
+      fontWeight: '600',
       color: colors.cardForeground,
-      marginBottom: 8,
+      marginBottom: isTablet ? 12 : 8,
     },
     transcriptText: {
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       color: colors.mutedForeground,
       backgroundColor: colors.background,
-      padding: 12,
-      borderRadius: 8,
-      minHeight: 50,
+      padding: isTablet ? 20 : 16,
+      borderRadius: isTablet ? 16 : 12,
+      minHeight: isTablet ? 80 : 60,
       textAlignVertical: 'top',
+      borderWidth: 1,
+      borderColor: colors.border,
+      lineHeight: isTablet ? 26 : 22,
     },
     recordingActions: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       width: '100%',
-      gap: 12,
+      gap: isTablet ? 16 : 12,
     },
     recordingCancelButton: {
       flex: 1,
       backgroundColor: colors.secondary,
-      padding: 14,
-      borderRadius: 10,
+      padding: isTablet ? 18 : 14,
+      borderRadius: isTablet ? 16 : 12,
       alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     recordingCancelButtonText: {
       color: colors.secondaryForeground,
-      fontSize: 16,
-      fontWeight: '500',
+      fontSize: isTablet ? 18 : 16,
+      fontWeight: '600',
     },
     recordingSendButton: {
       flex: 1,
       backgroundColor: colors.primary,
-      padding: 14,
-      borderRadius: 10,
+      padding: isTablet ? 18 : 14,
+      borderRadius: isTablet ? 16 : 12,
       alignItems: 'center',
       flexDirection: 'row',
       justifyContent: 'center',
-      gap: 8,
+      gap: isTablet ? 10 : 8,
+      shadowColor: colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
     },
     recordingSendButtonDisabled: {
       backgroundColor: colors.muted,
+      shadowOpacity: 0,
+      elevation: 0,
     },
     recordingSendButtonText: {
       color: '#fff',
-      fontSize: 16,
-      fontWeight: '500',
+      fontSize: isTablet ? 18 : 16,
+      fontWeight: '600',
     },
     recordingSendButtonTextDisabled: {
       color: colors.mutedForeground,
     },
     modalActions: {
       flexDirection: 'row',
-      gap: 12,
+      gap: isTablet ? 16 : 12,
       justifyContent: 'space-between',
       width: '100%',
     },
     modalCancelButton: {
       backgroundColor: colors.secondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowOpacity: 0,
+      elevation: 0,
     },
     modalCancelButtonText: {
       color: colors.secondaryForeground,
     },
     modalDeleteButton: {
       backgroundColor: colors.destructive,
+      shadowColor: colors.destructive,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
     },
   });
 
@@ -1907,7 +2056,13 @@ export default function AssistantTab() {
           </View>
         )}
         
-        {messages.map((message) => (
+        {messages.map((message) => {
+          // Safety check for message content
+          if (!message || !message.id) {
+            return null;
+          }
+          
+          return (
           <View
             key={message.id}
             style={[
@@ -1941,20 +2096,27 @@ export default function AssistantTab() {
                     </View>
                   </View>
                 ) : (
-                  <Text
-                    style={[
-                      styles.messageText,
-                      message.role === 'user' ? styles.userText : styles.assistantText,
-                    ]}
-                  >
-                    {message.role === 'assistant' ? 
-                      renderMarkdownText(message.content, styles.assistantText) :
-                      message.content
-                    }
-                    {message.isVoiceMessage && (
-                      <Text style={styles.voiceIndicator}> 🎤</Text>
-                    )}
-                  </Text>
+                  <View style={{ 
+                    minHeight: isTablet ? 28 : 22, 
+                    justifyContent: 'center',
+                    width: '100%',
+                    paddingVertical: 2
+                  }}>
+                    <Text
+                      style={[
+                        styles.messageText,
+                        message.role === 'user' ? styles.userText : styles.assistantText,
+                      ]}
+                    >
+                      {message.role === 'assistant' ? 
+                        renderMarkdownText(message.content || 'Message content not available', styles.assistantText) :
+                        (message.content || 'Message content not available')
+                      }
+                      {message.isVoiceMessage && (
+                        <Text style={styles.voiceIndicator}> 🎤</Text>
+                      )}
+                    </Text>
+                  </View>
                 )}
               </View>
               
@@ -2008,7 +2170,8 @@ export default function AssistantTab() {
               })}
             </Text>
           </View>
-        ))}
+          );
+        })}
         
         {isLoading && (
           <Text style={styles.loadingText}>Aura is thinking...</Text>
@@ -2133,12 +2296,15 @@ export default function AssistantTab() {
                 style={styles.closeButton}
                 onPress={() => setShowModal(false)}
               >
-                <X size={24} color={colors.cardForeground} />
+                <X size={isTablet ? 24 : 20} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalIcon}>
-              <AlertCircle size={48} color={colors.primary} />
+              {(() => {
+                const { icon: IconComponent, color } = getModalIconAndColor(modalTitle);
+                return <IconComponent size={isTablet ? 56 : 48} color={color} />;
+              })()}
             </View>
 
             <Text style={styles.modalMessage}>{modalMessage}</Text>
@@ -2168,13 +2334,13 @@ export default function AssistantTab() {
                 style={styles.recordingCloseButton}
                 onPress={cancelRecording}
               >
-                <X size={24} color={colors.cardForeground} />
+                <X size={isTablet ? 24 : 20} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.recordingAnimation}>
               <View style={[styles.microphoneIcon, isListening && styles.microphoneActive]}>
-                <Mic size={48} color={isListening ? colors.primary : colors.muted} />
+                <Mic size={isTablet ? 56 : 48} color={isListening ? colors.primary : colors.muted} />
               </View>
               {isListening && (
                 <Animated.View style={[styles.pulseAnimation, { transform: [{ scale: pulseAnim }] }]}>
@@ -2207,7 +2373,7 @@ export default function AssistantTab() {
                 onPress={() => stopListening(true)}
                 disabled={!recordingTranscript.trim()}
               >
-                <Send size={20} color={recordingTranscript.trim() ? '#fff' : colors.muted} />
+                <Send size={isTablet ? 24 : 20} color={recordingTranscript.trim() ? '#fff' : colors.muted} />
                 <Text style={[styles.recordingSendButtonText, !recordingTranscript.trim() && styles.recordingSendButtonTextDisabled]}>
                   Send
                 </Text>
@@ -2232,12 +2398,12 @@ export default function AssistantTab() {
                 style={styles.closeButton}
                 onPress={() => setShowDeleteConfirm(null)}
               >
-                <X size={24} color={colors.cardForeground} />
+                <X size={isTablet ? 24 : 20} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalIcon}>
-              <AlertCircle size={48} color={colors.destructive} />
+              <Trash2 size={isTablet ? 56 : 48} color={colors.destructive} />
             </View>
 
             <Text style={styles.modalMessage}>
