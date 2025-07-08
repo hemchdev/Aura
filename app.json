@@ -67,7 +67,11 @@
                 "**/libjsc.so"
               ],
               "exclude": [
-                "**/META-INF/androidx.localbroadcastmanager_localbroadcastmanager.version"
+                "**/META-INF/androidx.localbroadcastmanager_localbroadcastmanager.version",
+                "**/META-INF/androidx.customview_customview.version",
+                "**/META-INF/androidx.core_core.version",
+                "**/META-INF/androidx.lifecycle_lifecycle-runtime.version",
+                "**/META-INF/androidx.savedstate_savedstate.version"
               ]
             }
           }
