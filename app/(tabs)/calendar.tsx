@@ -40,6 +40,11 @@ export default function CalendarTab() {
     const istDate = getISTDate();
     return istDate.toISOString().split('T')[0];
   });
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    // Get current date in IST for month tracking
+    const istDate = getISTDate();
+    return istDate.toISOString().split('T')[0];
+  });
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -49,17 +54,31 @@ export default function CalendarTab() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+  // Helper function to get current time in AM/PM format
+  const getCurrentTimeAMPM = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    return `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  };
+
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
     location: '',
-    time: '12:00 PM',
+    time: getCurrentTimeAMPM(),
     duration: '60', // minutes
   });
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
   const [isEditingTime, setIsEditingTime] = useState(false);
   const [tempTime, setTempTime] = useState({ hour: '12', minute: '00', period: 'PM' });
+  const [tempDate, setTempDate] = useState({ day: '1', month: '1', year: '2025' });
+  const [tempMonthYear, setTempMonthYear] = useState({ month: '1', year: '2025' });
   const { user } = useAuthStore();
   const colors = useColors();
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
@@ -68,79 +87,124 @@ export default function CalendarTab() {
   const calendarTheme = useMemo(() => {
     const isDark = resolvedTheme === 'dark';
     
-    // Using color system for better theme integration
-    // For dark mode: Use a slightly lighter shade than the background for better visibility
-    // For light mode: Use pure white for clean appearance
-    const backgroundColor = isDark ? colors.card : '#FFFFFF';
-    const textColor = colors.foreground;
-    
     return {
-      backgroundColor: backgroundColor,
-      calendarBackground: backgroundColor,
+      backgroundColor: colors.background,
+      calendarBackground: colors.background,
       // Header (month/year and navigation arrows) styling
       'stylesheet.calendar.header': {
         header: {
-          backgroundColor: backgroundColor, // Explicit header background
+          backgroundColor: colors.background,
           flexDirection: 'row',
           justifyContent: 'space-between',
-          paddingLeft: 10,
-          paddingRight: 10,
-          marginTop: 6,
+          paddingLeft: 16,
+          paddingRight: 16,
+          marginTop: 8,
+          marginBottom: 8,
           alignItems: 'center',
+          height: 56,
         },
         monthText: {
-          fontSize: 18,
-          fontWeight: '600',
-          color: textColor, // Explicit month text color
-          margin: 10,
+          fontSize: isTablet ? 20 : 18,
+          fontWeight: '700',
+          color: colors.foreground,
+          margin: 0,
         },
         arrow: {
-          padding: 10,
-          backgroundColor: 'transparent', // Ensure arrow background is transparent
+          padding: 12,
+          backgroundColor: colors.card,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: colors.border,
         },
         arrowText: {
-          color: textColor, // Explicit arrow color
-          fontSize: 18,
+          color: colors.foreground,
+          fontSize: 16,
+          fontWeight: '600',
         },
         week: {
-          marginTop: 7,
+          marginTop: 8,
+          marginBottom: 8,
           flexDirection: 'row',
           justifyContent: 'space-around',
-          backgroundColor: backgroundColor, // Week header background
+          backgroundColor: colors.background,
+          paddingVertical: 8,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
         },
         dayHeader: {
-          marginTop: 2,
-          marginBottom: 7,
+          marginTop: 0,
+          marginBottom: 0,
           width: 32,
           textAlign: 'center',
-          fontSize: 14,
+          fontSize: isTablet ? 14 : 12,
           fontWeight: '600',
-          color: textColor, // Day header color
+          color: colors.mutedForeground,
         },
       },
-      // Text colors - comprehensive coverage
-      textSectionTitleColor: textColor, // Month/year and day headers (S M T W T F S)
-      monthTextColor: textColor, // Month/year text
-      dayTextColor: textColor, // Day numbers
-      textDisabledColor: colors.mutedForeground, // Use theme's muted color
+      'stylesheet.day.basic': {
+        base: {
+          width: isTablet ? 40 : 32,
+          height: isTablet ? 40 : 32,
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: isTablet ? 4 : 2,
+        },
+        text: {
+          marginTop: 0,
+          fontSize: isTablet ? 16 : 14,
+          fontWeight: '400',
+          color: colors.foreground,
+          backgroundColor: 'transparent',
+        },
+        today: {
+          backgroundColor: colors.primary + '20',
+          borderRadius: isTablet ? 20 : 16,
+          borderWidth: 1,
+          borderColor: colors.primary,
+        },
+        todayText: {
+          color: colors.primary,
+          fontWeight: '600',
+        },
+        selected: {
+          backgroundColor: colors.primary,
+          borderRadius: isTablet ? 20 : 16,
+        },
+        selectedText: {
+          color: colors.primaryForeground,
+          fontWeight: '600',
+        },
+        disabled: {
+          backgroundColor: 'transparent',
+        },
+        disabledText: {
+          color: colors.mutedForeground,
+          opacity: 0.5,
+        },
+      },
+      // Text colors
+      textSectionTitleColor: colors.foreground,
+      monthTextColor: colors.foreground,
+      dayTextColor: colors.foreground,
+      textDisabledColor: colors.mutedForeground,
       // Selected and interactive elements
       selectedDayBackgroundColor: colors.primary,
-      selectedDayTextColor: colors.primaryForeground, // Text on selected day
-      todayTextColor: colors.primary, // Today's date
+      selectedDayTextColor: colors.primaryForeground,
+      todayTextColor: colors.primary,
       // Dots and indicators
       dotColor: colors.primary,
-      selectedDotColor: colors.primaryForeground, // Dot on selected day
+      selectedDotColor: colors.primaryForeground,
       // Navigation arrows
-      arrowColor: textColor, // Left/right navigation arrows
-      disabledArrowColor: colors.mutedForeground, // Use theme's muted color
+      arrowColor: colors.foreground,
+      disabledArrowColor: colors.mutedForeground,
       indicatorColor: colors.primary,
-      // Font weights and sizes
-      textMonthFontWeight: '600' as const,
+      // Font configuration
+      textMonthFontWeight: '700' as const,
       textDayFontWeight: '400' as const,
       textDayHeaderFontWeight: '600' as const,
-      textDayFontSize: 16,
-      textMonthFontSize: 18,
-      textDayHeaderFontSize: 14,
+      textDayFontSize: isTablet ? 16 : 14,
+      textMonthFontSize: isTablet ? 20 : 18,
+      textDayHeaderFontSize: isTablet ? 14 : 12,
     };
   }, [colors, resolvedTheme]);
 
@@ -320,7 +384,7 @@ export default function CalendarTab() {
         title: '',
         description: '',
         location: '',
-        time: '12:00 PM',
+        time: getCurrentTimeAMPM(),
         duration: '60',
       });
       setShowAddModal(false);
@@ -402,7 +466,7 @@ export default function CalendarTab() {
         title: '',
         description: '',
         location: '',
-        time: '12:00 PM',
+        time: getCurrentTimeAMPM(),
         duration: '60',
       });
       setShowEditModal(false);
@@ -505,6 +569,7 @@ export default function CalendarTab() {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       weekday: 'long',
+      year: 'numeric',
       month: 'long',
       day: 'numeric',
       timeZone: 'Asia/Kolkata'
@@ -542,42 +607,41 @@ export default function CalendarTab() {
     },
     calendar: {
       borderWidth: 1,
-      borderColor: colors.border, // Use theme border color
-      backgroundColor: 'transparent', // Use transparent to let theme handle background
-      borderRadius: 16, // Modern card look
-      marginHorizontal: 10, // Add some margin for better appearance
-      marginTop: 10,
-      marginBottom: 10,
-      shadowColor: '#000', // Use default black shadow
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      borderRadius: isTablet ? 16 : 12,
+      marginHorizontal: isTablet ? 16 : 12,
+      marginTop: isTablet ? 16 : 12,
+      marginBottom: isTablet ? 16 : 12,
+      shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: resolvedTheme === 'dark' ? 0.3 : 0.1,
       shadowRadius: 8,
       elevation: 4,
+      overflow: 'hidden',
     },
     eventsContainer: {
       flex: 1,
-      padding: 16,
+      padding: isTablet ? 20 : 16,
     },
     selectedDateText: {
-      fontSize: 18,
+      fontSize: isTablet ? 20 : 18,
       fontWeight: '600',
       color: colors.foreground,
-      marginBottom: 16,
+      marginBottom: isTablet ? 20 : 16,
     },
     eventCard: {
-      // In dark mode, use a slightly lighter color than the card background
-      // In light mode, use a slightly off-white for subtle distinction
-      backgroundColor: resolvedTheme === 'dark' ? '#334155' : '#F8FAFC', // Slate-700 for dark, slate-50 for light
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 12,
+      backgroundColor: colors.card,
+      borderRadius: isTablet ? 16 : 12,
+      padding: isTablet ? 20 : 16,
+      marginBottom: isTablet ? 16 : 12,
       borderWidth: 1,
       borderColor: colors.border,
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
+      shadowOffset: { width: 0, height: 2 },
       shadowOpacity: resolvedTheme === 'dark' ? 0.3 : 0.1,
-      shadowRadius: 2,
-      elevation: 2,
+      shadowRadius: 4,
+      elevation: 3,
     },
     eventHeader: {
       flexDirection: 'row',
@@ -654,7 +718,7 @@ export default function CalendarTab() {
       padding: isTablet ? 32 : 24,
       width: '100%',
       maxWidth: isTablet ? 520 : 420,
-      alignItems: 'center',
+      alignItems: 'stretch',
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
@@ -930,6 +994,107 @@ export default function CalendarTab() {
     timePickerConfirmText: {
       color: colors.primaryForeground,
     },
+    datePickerModal: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    datePickerContent: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      width: '100%',
+      maxWidth: 320,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    datePickerHeader: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.cardForeground,
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    dateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 20,
+    },
+    dateInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      textAlign: 'center',
+      color: colors.cardForeground,
+      backgroundColor: colors.background,
+      marginHorizontal: 5,
+    },
+    dayInput: {
+      width: 60,
+    },
+    monthInput: {
+      width: 60,
+    },
+    yearInput: {
+      width: 80,
+    },
+    dateSeparator: {
+      fontSize: 16,
+      color: colors.cardForeground,
+      marginHorizontal: 5,
+      fontWeight: '600',
+    },
+    datePickerActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 20,
+    },
+    dateActionButton: {
+      flex: 1,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginHorizontal: 5,
+    },
+    datePickerCancelButton: {
+      backgroundColor: colors.muted,
+    },
+    datePickerConfirmButton: {
+      backgroundColor: colors.primary,
+    },
+    datePickerButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    datePickerCancelText: {
+      color: colors.mutedForeground,
+    },
+    datePickerConfirmText: {
+      color: colors.primaryForeground,
+    },
+    calendarHeader: {
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+    },
+    calendarHeaderContainer: {
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    calendarHeaderText: {
+      fontSize: isTablet ? 20 : 18,
+      fontWeight: '700',
+      color: colors.foreground,
+      textAlign: 'center',
+    },
   });
 
   const openTimePicker = () => {
@@ -1018,6 +1183,160 @@ export default function CalendarTab() {
     }
   };
 
+  // Navigation functions for month changes
+  const onMonthChange = (month: any) => {
+    console.log('Month changed to:', month.dateString);
+    setCurrentMonth(month.dateString);
+  };
+
+  const openDatePicker = () => {
+    // Parse current selected date to set temp values
+    const date = new Date(selectedDate);
+    setTempDate({
+      day: date.getDate().toString(),
+      month: (date.getMonth() + 1).toString(),
+      year: date.getFullYear().toString()
+    });
+    setShowDatePicker(true);
+  };
+
+  const confirmDate = () => {
+    // Validate and format the date
+    let day = parseInt(tempDate.day);
+    let month = parseInt(tempDate.month);
+    let year = parseInt(tempDate.year);
+
+    // Validate year (reasonable range)
+    if (isNaN(year) || year < 1900 || year > 2100) {
+      year = new Date().getFullYear();
+    }
+
+    // Validate month (1-12)
+    if (isNaN(month) || month < 1 || month > 12) {
+      month = new Date().getMonth() + 1;
+    }
+
+    // Validate day based on month and year
+    const daysInMonth = new Date(year, month, 0).getDate();
+    if (isNaN(day) || day < 1 || day > daysInMonth) {
+      day = Math.min(parseInt(tempDate.day) || 1, daysInMonth);
+    }
+
+    // Create the date string in YYYY-MM-DD format
+    const dateString = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    
+    setSelectedDate(dateString);
+    setCurrentMonth(dateString); // Also update the current month to show this date
+    setShowDatePicker(false);
+  };
+
+  const updateTempDay = (day: string) => {
+    if (day === '') {
+      setTempDate(prev => ({ ...prev, day: '' }));
+      return;
+    }
+    
+    const dayNum = parseInt(day);
+    if (isNaN(dayNum)) return;
+    
+    if (day.length <= 2 && dayNum >= 1 && dayNum <= 31) {
+      setTempDate(prev => ({ ...prev, day: dayNum.toString() }));
+    }
+  };
+
+  const updateTempMonth = (month: string) => {
+    if (month === '') {
+      setTempDate(prev => ({ ...prev, month: '' }));
+      return;
+    }
+    
+    const monthNum = parseInt(month);
+    if (isNaN(monthNum)) return;
+    
+    if (month.length <= 2 && monthNum >= 1 && monthNum <= 12) {
+      setTempDate(prev => ({ ...prev, month: monthNum.toString() }));
+    }
+  };
+
+  const updateTempYear = (year: string) => {
+    if (year === '') {
+      setTempDate(prev => ({ ...prev, year: '' }));
+      return;
+    }
+    
+    const yearNum = parseInt(year);
+    if (isNaN(yearNum)) return;
+    
+    if (year.length <= 4 && yearNum >= 1900 && yearNum <= 2100) {
+      setTempDate(prev => ({ ...prev, year: yearNum.toString() }));
+    }
+  };
+
+  const openMonthYearPicker = () => {
+    // Parse current selected date to set temp values
+    const date = new Date(currentMonth);
+    setTempMonthYear({
+      month: (date.getMonth() + 1).toString(),
+      year: date.getFullYear().toString()
+    });
+    setShowMonthYearPicker(true);
+  };
+
+  const confirmMonthYear = () => {
+    // Validate and format the date
+    let month = parseInt(tempMonthYear.month);
+    let year = parseInt(tempMonthYear.year);
+
+    // Validate year (reasonable range)
+    if (isNaN(year) || year < 1900 || year > 2100) {
+      year = new Date().getFullYear();
+    }
+
+    // Validate month (1-12)
+    if (isNaN(month) || month < 1 || month > 12) {
+      month = new Date().getMonth() + 1;
+    }
+
+    // Create the date string in YYYY-MM-DD format (use day 1 for month display)
+    const dateString = `${year}-${month.toString().padStart(2, '0')}-01`;
+    
+    setCurrentMonth(dateString);
+    
+    // Also update selected date to the first day of the selected month/year
+    setSelectedDate(dateString);
+    
+    setShowMonthYearPicker(false);
+  };
+
+  const updateTempMonthPicker = (month: string) => {
+    if (month === '') {
+      setTempMonthYear(prev => ({ ...prev, month: '' }));
+      return;
+    }
+    
+    const monthNum = parseInt(month);
+    if (isNaN(monthNum)) return;
+    
+    if (month.length <= 2 && monthNum >= 1 && monthNum <= 12) {
+      setTempMonthYear(prev => ({ ...prev, month: monthNum.toString() }));
+    }
+  };
+
+  const updateTempYearPicker = (year: string) => {
+    if (year === '') {
+      setTempMonthYear(prev => ({ ...prev, year: '' }));
+      return;
+    }
+    
+    const yearNum = parseInt(year);
+    if (isNaN(yearNum)) return;
+    
+    // Allow any 4-digit year input while typing
+    if (year.length <= 4) {
+      setTempMonthYear(prev => ({ ...prev, year: year }));
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -1031,18 +1350,60 @@ export default function CalendarTab() {
       </View>
 
       <Calendar
+        key={`calendar-${resolvedTheme}-${currentMonth}`}
         style={styles.calendar}
-        current={selectedDate}
+        current={currentMonth}
         onDayPress={(day) => setSelectedDate(day.dateString)}
+        onMonthChange={onMonthChange}
+        onPressArrowLeft={() => {
+          const newMonth = new Date(currentMonth);
+          newMonth.setMonth(newMonth.getMonth() - 1);
+          const newDateString = newMonth.toISOString().split('T')[0];
+          setCurrentMonth(newDateString);
+        }}
+        onPressArrowRight={() => {
+          const newMonth = new Date(currentMonth);
+          newMonth.setMonth(newMonth.getMonth() + 1);
+          const newDateString = newMonth.toISOString().split('T')[0];
+          setCurrentMonth(newDateString);
+        }}
+        renderHeader={(date) => (
+          <View style={styles.calendarHeaderContainer}>
+            <TouchableOpacity 
+              style={styles.calendarHeader}
+              onPress={() => {
+                const currentDate = new Date(date);
+                setTempMonthYear({
+                  month: (currentDate.getMonth() + 1).toString(),
+                  year: currentDate.getFullYear().toString()
+                });
+                setShowMonthYearPicker(true);
+              }}
+            >
+              <Text style={styles.calendarHeaderText}>
+                {new Date(date).toLocaleDateString('en-US', {
+                  month: 'long',
+                  year: 'numeric'
+                })}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
         markedDates={getMarkedDates()}
         theme={calendarTheme}
+        hideArrows={false}
+        hideExtraDays={true}
+        disableMonthChange={false}
+        firstDay={0}
+        hideDayNames={false}
+        showWeekNumbers={false}
+        disableArrowLeft={false}
+        disableArrowRight={false}
+        disableAllTouchEventsForDisabledDays={true}
+        enableSwipeMonths={true}
       />
 
       <ScrollView style={styles.eventsContainer}>
-        <Text style={styles.selectedDateText}>
-          {formatDate(selectedDate)}
-        </Text>
-
         {selectedEvents.length > 0 ? (
           selectedEvents.map((event) => (
             <View key={event.id} style={styles.eventCard}>
@@ -1443,6 +1804,123 @@ export default function CalendarTab() {
                 OK
               </Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Date Picker Modal */}
+      <Modal
+        visible={showDatePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <View style={styles.datePickerModal}>
+          <View style={styles.datePickerContent}>
+            <Text style={styles.datePickerHeader}>Select Date (DD/MM/YYYY)</Text>
+            
+            <View style={styles.dateRow}>
+              <TextInput
+                style={[styles.dateInput, styles.dayInput]}
+                value={tempDate.day}
+                onChangeText={updateTempDay}
+                placeholder="DD"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="numeric"
+                maxLength={2}
+                selectTextOnFocus
+              />
+              <Text style={styles.dateSeparator}>/</Text>
+              <TextInput
+                style={[styles.dateInput, styles.monthInput]}
+                value={tempDate.month}
+                onChangeText={updateTempMonth}
+                placeholder="MM"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="numeric"
+                maxLength={2}
+                selectTextOnFocus
+              />
+              <Text style={styles.dateSeparator}>/</Text>
+              <TextInput
+                style={[styles.dateInput, styles.yearInput]}
+                value={tempDate.year}
+                onChangeText={updateTempYear}
+                placeholder="YYYY"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="numeric"
+                maxLength={4}
+                selectTextOnFocus
+              />
+            </View>
+
+            <View style={styles.datePickerActions}>
+              <TouchableOpacity
+                style={[styles.dateActionButton, styles.datePickerCancelButton]}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={[styles.datePickerButtonText, styles.datePickerCancelText]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.dateActionButton, styles.datePickerConfirmButton]}
+                onPress={confirmDate}
+              >
+                <Text style={[styles.datePickerButtonText, styles.datePickerConfirmText]}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Month/Year Picker Modal */}
+      <Modal
+        visible={showMonthYearPicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowMonthYearPicker(false)}
+      >
+        <View style={styles.datePickerModal}>
+          <View style={styles.datePickerContent}>
+            <Text style={styles.datePickerHeader}>Select Month and Year</Text>
+            
+            <View style={styles.dateRow}>
+              <TextInput
+                style={[styles.dateInput, styles.monthInput]}
+                value={tempMonthYear.month}
+                onChangeText={updateTempMonthPicker}
+                placeholder="MM"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="numeric"
+                maxLength={2}
+                selectTextOnFocus
+              />
+              <Text style={styles.dateSeparator}>/</Text>
+              <TextInput
+                style={[styles.dateInput, styles.yearInput]}
+                value={tempMonthYear.year}
+                onChangeText={updateTempYearPicker}
+                placeholder="YYYY"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="numeric"
+                maxLength={4}
+                selectTextOnFocus
+              />
+            </View>
+
+            <View style={styles.datePickerActions}>
+              <TouchableOpacity
+                style={[styles.dateActionButton, styles.datePickerCancelButton]}
+                onPress={() => setShowMonthYearPicker(false)}
+              >
+                <Text style={[styles.datePickerButtonText, styles.datePickerCancelText]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.dateActionButton, styles.datePickerConfirmButton]}
+                onPress={confirmMonthYear}
+              >
+                <Text style={[styles.datePickerButtonText, styles.datePickerConfirmText]}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

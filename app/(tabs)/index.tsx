@@ -13,7 +13,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Mic, Send, MicOff, X, AlertCircle, Calendar, Clock, Copy, Edit3, MoreHorizontal, Trash2, CheckCircle, XCircle, Info } from 'lucide-react-native';
+import { Mic, Send, MicOff, X, AlertCircle, Calendar, Clock, Copy, Edit3, Trash2, CheckCircle, XCircle, Info } from 'lucide-react-native';
 import { useColors } from '@/hooks/useColors';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { geminiService } from '@/lib/gemini';
@@ -1477,8 +1477,8 @@ export default function AssistantTab() {
     },
     messageContainer: {
       marginBottom: isTablet ? 20 : 16,
-      maxWidth: isLargeScreen ? '55%' : isTablet ? '65%' : isPhoneLandscape ? '75%' : '85%',
-      minWidth: isLargeScreen ? '20%' : isTablet ? '25%' : isPhoneLandscape ? '25%' : '30%',
+      maxWidth: isLargeScreen ? '55%' : isTablet ? '65%' : '80%',
+      minWidth: isLargeScreen ? '20%' : isTablet ? '25%' : '35%',
       width: 'auto',
       flexShrink: 1,
       minHeight: isTablet ? 52 : 44,
@@ -1491,24 +1491,24 @@ export default function AssistantTab() {
       alignSelf: 'flex-start',
     },
     messageBubble: {
-      padding: isLargeScreen ? 24 : isTablet ? 20 : isPhoneLandscape ? 14 : 16,
-      borderRadius: isLargeScreen ? 28 : isTablet ? 24 : isPhoneLandscape ? 18 : 20,
+      padding: isLargeScreen ? 24 : isTablet ? 20 : 16,
+      borderRadius: isLargeScreen ? 28 : isTablet ? 24 : 20,
       flex: 1,
       maxWidth: '100%',
-      minHeight: isLargeScreen ? 60 : isTablet ? 52 : isPhoneLandscape ? 40 : 44,
-      minWidth: isLargeScreen ? 100 : isTablet ? 80 : isPhoneLandscape ? 50 : 60,
+      minHeight: isLargeScreen ? 60 : isTablet ? 52 : 44,
+      minWidth: isLargeScreen ? 100 : isTablet ? 80 : 60,
       justifyContent: 'center',
       alignSelf: 'stretch',
     },
     userBubble: {
       backgroundColor: colors.primary,
-      marginLeft: isLargeScreen ? 60 : isTablet ? 40 : isPhoneLandscape ? 30 : 20,
+      marginLeft: isLargeScreen ? 60 : isTablet ? 40 : 20,
     },
     assistantBubble: {
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
-      marginRight: isLargeScreen ? 60 : isTablet ? 40 : isPhoneLandscape ? 30 : 20,
+      marginRight: isLargeScreen ? 60 : isTablet ? 40 : 20,
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
@@ -1519,12 +1519,12 @@ export default function AssistantTab() {
       elevation: 1,
     },
     messageText: {
-      fontSize: isLargeScreen ? 20 : isTablet ? 18 : isPhoneLandscape ? 15 : 16,
-      lineHeight: isLargeScreen ? 32 : isTablet ? 28 : isPhoneLandscape ? 22 : 24,
+      fontSize: isLargeScreen ? 20 : isTablet ? 18 : 16,
+      lineHeight: isLargeScreen ? 32 : isTablet ? 28 : 24,
       flexWrap: 'wrap',
       flexShrink: 1,
       textAlign: 'left',
-      minHeight: isLargeScreen ? 32 : isTablet ? 28 : isPhoneLandscape ? 22 : 24,
+      minHeight: isLargeScreen ? 32 : isTablet ? 28 : 24,
       letterSpacing: 0.2,
     },
     userText: {
@@ -1695,47 +1695,33 @@ export default function AssistantTab() {
       marginLeft: 4,
       fontWeight: '500',
     },
-    messageRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: isLargeScreen ? 16 : isTablet ? 12 : isPhoneLandscape ? 6 : 8,
-      maxWidth: '100%',
-      flexShrink: 1,
-      minHeight: isLargeScreen ? 60 : isTablet ? 52 : isPhoneLandscape ? 40 : 44,
-    },
-    messageActions: {
-      padding: isLargeScreen ? 16 : isTablet ? 12 : isPhoneLandscape ? 6 : 8,
-      marginTop: isLargeScreen ? 16 : isTablet ? 12 : isPhoneLandscape ? 6 : 8,
-      flexShrink: 0,
-      width: isLargeScreen ? 48 : isTablet ? 40 : isPhoneLandscape ? 28 : 32,
-      height: isLargeScreen ? 48 : isTablet ? 40 : isPhoneLandscape ? 28 : 32,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderRadius: isLargeScreen ? 24 : isTablet ? 20 : isPhoneLandscape ? 14 : 16,
-      backgroundColor: colors.muted + '20',
-    },
     actionsMenu: {
       backgroundColor: colors.card,
-      borderRadius: 8,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: colors.border,
       marginTop: 8,
-      padding: 4,
+      padding: 8,
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 8,
+      minWidth: 140,
     },
     actionItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 8,
-      gap: 8,
+      padding: 12,
+      gap: 12,
+      borderRadius: 8,
+      minHeight: 44,
     },
     actionText: {
-      fontSize: 14,
+      fontSize: 15,
+      fontWeight: '500',
       color: colors.foreground,
+      flex: 1,
     },
     editContainer: {
       width: '100%',
@@ -2070,12 +2056,13 @@ export default function AssistantTab() {
               message.role === 'user' ? styles.userMessage : styles.assistantMessage,
             ]}
           >
-            <View style={styles.messageRow}>
-              <View
+            <TouchableOpacity
                 style={[
                   styles.messageBubble,
                   message.role === 'user' ? styles.userBubble : styles.assistantBubble,
                 ]}
+                onLongPress={() => setShowMessageActions(showMessageActions === message.id ? null : message.id)}
+                delayLongPress={300}
               >
                 {editingMessage === message.id ? (
                   <View style={styles.editContainer}>
@@ -2118,16 +2105,7 @@ export default function AssistantTab() {
                     </Text>
                   </View>
                 )}
-              </View>
-              
-              {/* Message Actions Button */}
-              <TouchableOpacity
-                style={styles.messageActions}
-                onPress={() => setShowMessageActions(showMessageActions === message.id ? null : message.id)}
-              >
-                <MoreHorizontal size={18} color={colors.mutedForeground} />
               </TouchableOpacity>
-            </View>
 
             {/* Message Actions Menu */}
             {showMessageActions === message.id && (

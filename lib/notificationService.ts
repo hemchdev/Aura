@@ -233,11 +233,59 @@ class NotificationService {
       await this.initialize();
 
       const reminderTime = new Date(startTime.getTime() - reminderMinutes * 60 * 1000);
+      const now = new Date();
+      const timeDiff = reminderTime.getTime() - now.getTime();
+      
+      console.log('Scheduling event reminder:', {
+        eventId,
+        title,
+        startTime: startTime.toISOString(),
+        reminderTime: reminderTime.toISOString(),
+        now: now.toISOString(),
+        reminderMinutes,
+        timeDiffMinutes: Math.round(timeDiff / 60000),
+        isPast: reminderTime <= now
+      });
       
       // Don't schedule if the reminder time is in the past
-      if (reminderTime <= new Date()) {
+      if (reminderTime <= now) {
         console.warn('Cannot schedule event reminder in the past');
+        await this.showSchedulingSuccess(
+          'Event Reminder Not Scheduled',
+          'Cannot schedule event reminder in the past. The event time may have already passed.'
+        );
         return null;
+      }
+
+      // Don't schedule if the reminder is within the next 10 seconds (to avoid immediate notifications)
+      if (timeDiff < 10000) {
+        console.warn('Event reminder time too close to current time, scheduling for 1 minute from now');
+        const adjustedReminderTime = new Date(now.getTime() + 60000); // 1 minute from now
+        
+        const identifier = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `Upcoming Event: ${title}`,
+            body: `Your event "${title}" is coming up soon`,
+            data: {
+              type: 'event_reminder',
+              eventId,
+              title,
+              body: `Your event "${title}" is coming up soon`,
+              reminderMinutes: 1,
+              originalTime: startTime.toISOString(),
+            } as NotificationData,
+            categoryIdentifier: 'event_reminder',
+          },
+          trigger: { date: adjustedReminderTime } as any,
+        });
+
+        await this.showSchedulingSuccess(
+          'Event Reminder Scheduled',
+          `You'll be reminded about "${title}" in 1 minute`,
+          adjustedReminderTime
+        );
+
+        return identifier;
       }
 
       const identifier = await Notifications.scheduleNotificationAsync({
@@ -275,10 +323,32 @@ class NotificationService {
     try {
       await this.initialize();
 
+      const now = new Date();
+      const timeDiff = remindAt.getTime() - now.getTime();
+      
+      console.log('Scheduling reminder:', {
+        reminderId,
+        title,
+        remindAt: remindAt.toISOString(),
+        now: now.toISOString(),
+        timeDiffMinutes: Math.round(timeDiff / 60000),
+        isPast: remindAt <= now
+      });
+
       // Don't schedule if the reminder time is in the past
-      if (remindAt <= new Date()) {
+      if (remindAt <= now) {
         console.warn('Cannot schedule reminder in the past');
+        await this.showSchedulingSuccess(
+          'Reminder Not Scheduled',
+          'Cannot schedule reminder in the past. Please choose a future time.'
+        );
         return null;
+      }
+
+      // Don't schedule if the reminder is within the next 10 seconds (to avoid immediate notifications)
+      if (timeDiff < 10000) {
+        console.warn('Reminder time too close to current time, scheduling for 1 minute from now');
+        remindAt = new Date(now.getTime() + 60000); // 1 minute from now
       }
 
       const identifier = await Notifications.scheduleNotificationAsync({

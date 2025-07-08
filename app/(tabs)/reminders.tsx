@@ -33,6 +33,16 @@ export default function RemindersTab() {
   const [modalMessage, setModalMessage] = useState('');
   const [reminderToDelete, setReminderToDelete] = useState<Reminder | null>(null);
   const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null);
+  // Helper function to get current time in AM/PM format
+  const getCurrentTimeAMPM = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    return `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  };
+
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [tempTime, setTempTime] = useState({ hour: '12', minute: '00', period: 'PM' });
@@ -40,7 +50,7 @@ export default function RemindersTab() {
     title: '',
     text: '',
     date: new Date().toISOString().split('T')[0],
-    time: '12:00 PM',
+    time: getCurrentTimeAMPM(),
   });
   const { user } = useAuthStore();
   const colors = useColors();
@@ -146,7 +156,7 @@ export default function RemindersTab() {
         title: '',
         text: '',
         date: new Date().toISOString().split('T')[0],
-        time: '12:00 PM',
+        time: getCurrentTimeAMPM(),
       });
       setShowAddModal(false);
       
@@ -222,7 +232,7 @@ export default function RemindersTab() {
         title: '',
         text: '',
         date: new Date().toISOString().split('T')[0],
-        time: '12:00 PM',
+        time: getCurrentTimeAMPM(),
       });
       setShowEditModal(false);
       setSelectedReminder(null);
@@ -783,7 +793,7 @@ export default function RemindersTab() {
       padding: isTablet ? 32 : 24,
       width: '100%',
       maxWidth: isTablet ? 520 : 420,
-      alignItems: 'center',
+      alignItems: 'stretch',
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
@@ -929,27 +939,43 @@ export default function RemindersTab() {
     datePickerButton: {
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 16,
+      borderRadius: isTablet ? 12 : 8,
+      padding: isTablet ? 16 : 12,
+      marginBottom: isTablet ? 20 : 16,
       backgroundColor: colors.background,
       justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
     },
     datePickerText: {
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       color: colors.cardForeground,
     },
     timePickerButton: {
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 16,
+      borderRadius: isTablet ? 12 : 8,
+      padding: isTablet ? 16 : 12,
+      marginBottom: isTablet ? 20 : 16,
       backgroundColor: colors.background,
       justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
     },
     timePickerText: {
-      fontSize: 16,
+      fontSize: isTablet ? 18 : 16,
       color: colors.cardForeground,
     },
     timePickerModal: {

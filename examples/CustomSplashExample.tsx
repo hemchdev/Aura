@@ -13,7 +13,7 @@ export default function AppWithCustomSplash() {
   useEffect(() => {
     // Hide the native splash screen immediately since we're using custom
     SplashScreen.hide();
-    
+   
     // Simulate app loading
     const loadApp = async () => {
       try {

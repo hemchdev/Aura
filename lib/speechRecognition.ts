@@ -79,6 +79,21 @@ export const speechRecognitionService = {
     } else {
       stopWebSpeechRecognition();
     }
+  },
+
+  /**
+   * Cancel current speech recognition
+   */
+  cancel: async (): Promise<void> => {
+    if (Platform.OS !== 'web') {
+      try {
+        await Voice.cancel();
+      } catch (e) {
+        console.error('Error cancelling voice recognition:', e);
+      }
+    } else {
+      stopWebSpeechRecognition();
+    }
   }
 };
 
@@ -109,39 +124,74 @@ function startWebSpeechRecognition(callbacks: SpeechRecognitionCallback, languag
       webRecognition.continuous = true;
       webRecognition.interimResults = true;
       webRecognition.lang = language;
+      webRecognition.maxAlternatives = 1;
       
       // Set up event handlers
       webRecognition.onstart = () => {
+        console.log('Web speech recognition started');
         callbacks.onSpeechStart?.();
         resolve();
       };
       
       webRecognition.onresult = (event: any) => {
         let finalTranscript = '';
+        let interimTranscript = '';
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
           
           if (event.results[i].isFinal) {
             finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
           }
         }
         
+        // Send results for both final and interim results
         if (finalTranscript) {
+          console.log('Final transcript:', finalTranscript);
           callbacks.onSpeechResults?.(finalTranscript);
+        } else if (interimTranscript) {
+          console.log('Interim transcript:', interimTranscript);
+          callbacks.onSpeechResults?.(interimTranscript);
         }
       };
       
       webRecognition.onerror = (event: any) => {
-        callbacks.onSpeechError?.(event.error);
-        reject(event.error);
+        console.error('Web speech recognition error:', event.error);
+        let errorMessage = 'Speech recognition error';
+        
+        switch (event.error) {
+          case 'no-speech':
+            errorMessage = 'No speech was detected. Please try again.';
+            break;
+          case 'audio-capture':
+            errorMessage = 'Audio capture failed. Please check your microphone.';
+            break;
+          case 'not-allowed':
+            errorMessage = 'Microphone access was denied. Please allow microphone access.';
+            break;
+          case 'network':
+            errorMessage = 'Network error occurred. Please check your internet connection.';
+            break;
+          case 'service-not-allowed':
+            errorMessage = 'Speech recognition service is not allowed. Please check your browser settings.';
+            break;
+          default:
+            errorMessage = `Speech recognition error: ${event.error}`;
+        }
+        
+        callbacks.onSpeechError?.(errorMessage);
+        reject(new Error(errorMessage));
       };
       
       webRecognition.onend = () => {
+        console.log('Web speech recognition ended');
         callbacks.onSpeechEnd?.();
       };
       
       // Start recognition
+      console.log('Starting web speech recognition...');
       webRecognition.start();
       
     } catch (error) {
@@ -174,7 +224,11 @@ async function startNativeSpeechRecognition(
 ): Promise<void> {
   try {
     // Clean up any existing instances
-    await Voice.destroy();
+    try {
+      await Voice.destroy();
+    } catch (e) {
+      // Ignore errors during cleanup
+    }
     
     // Set up event listeners
     Voice.onSpeechStart = () => {
@@ -222,9 +276,11 @@ async function startNativeSpeechRecognition(
     
     const errorString = String(e);
     if (errorString.includes('permission')) {
-      errorMessage = 'Microphone permission is required for voice input';
+      errorMessage = 'Microphone permission is required for voice input. Please enable microphone permission in your device settings.';
     } else if (errorString.includes('not available')) {
       errorMessage = 'Speech recognition is not available on this device';
+    } else if (errorString.includes('destroySpeech')) {
+      errorMessage = 'Speech recognition initialization failed. Please restart the app and try again.';
     }
     
     callbacks.onSpeechError?.(errorMessage);
