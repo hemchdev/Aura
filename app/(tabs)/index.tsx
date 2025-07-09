@@ -73,13 +73,26 @@ export default function AssistantTab() {
     // Check microphone permissions on Android startup
     if (Platform.OS === 'android') {
       speechRecognitionService.checkMicrophonePermission().then(hasPermission => {
-        // console.log('Microphone permission status on startup:', hasPermission);
+        console.log('Microphone permission status on startup:', hasPermission);
         if (!hasPermission) {
-          // console.log('Microphone permission not granted, will request when needed');
+          console.log('Microphone permission not granted, will request when needed');
         }
       }).catch(error => {
         console.warn('Failed to check microphone permission on startup:', error);
       });
+      
+      // Also check if Voice service is available on Android
+      setTimeout(() => {
+        try {
+          if (speechRecognitionService.isAvailable()) {
+            console.log('Speech recognition service is available on Android');
+          } else {
+            console.warn('Speech recognition service may not be available on this Android device');
+          }
+        } catch (error) {
+          console.warn('Could not check speech recognition availability:', error);
+        }
+      }, 2000);
     }
     
     // Listen for dimension changes (orientation, etc.)
@@ -1580,13 +1593,14 @@ export default function AssistantTab() {
       paddingBottom: isTablet ? 20 : isPhoneLandscape ? 12 : 14,
     },
     messageContainer: {
-      marginBottom: isTablet ? 16 : isPhoneLandscape ? 8 : 10,
+      marginBottom: isTablet ? 16 : isPhoneLandscape ? 10 : 12,
       maxWidth: isLargeScreen ? '55%' : isTablet ? '65%' : '80%',
       minWidth: isLargeScreen ? '20%' : isTablet ? '25%' : '35%',
       width: 'auto',
       flexShrink: 1,
       minHeight: isTablet ? 44 : isPhoneLandscape ? 32 : 36,
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
+      paddingVertical: 2,
     },
     userMessage: {
       alignSelf: 'flex-end',
@@ -1595,24 +1609,26 @@ export default function AssistantTab() {
       alignSelf: 'flex-start',
     },
     messageBubble: {
-      padding: isLargeScreen ? 16 : isTablet ? 12 : isPhoneLandscape ? 8 : 10,
+      padding: isLargeScreen ? 16 : isTablet ? 12 : isPhoneLandscape ? 10 : 12,
       borderRadius: isLargeScreen ? 20 : isTablet ? 16 : 14,
       flex: 1,
       maxWidth: '100%',
-      minHeight: isLargeScreen ? 44 : isTablet ? 36 : isPhoneLandscape ? 24 : 28,
+      minHeight: isLargeScreen ? 44 : isTablet ? 36 : isPhoneLandscape ? 28 : 32,
       minWidth: isLargeScreen ? 80 : isTablet ? 60 : 50,
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
       alignSelf: 'stretch',
     },
     userBubble: {
       backgroundColor: colors.primary,
-      marginLeft: isLargeScreen ? 60 : isTablet ? 40 : isPhoneLandscape ? 12 : 16,
+      marginLeft: isLargeScreen ? 60 : isTablet ? 40 : isPhoneLandscape ? 16 : 20,
+      marginBottom: 4,
     },
     assistantBubble: {
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
-      marginRight: isLargeScreen ? 60 : isTablet ? 40 : isPhoneLandscape ? 12 : 16,
+      marginRight: isLargeScreen ? 60 : isTablet ? 40 : isPhoneLandscape ? 16 : 20,
+      marginBottom: 4,
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
@@ -1624,12 +1640,12 @@ export default function AssistantTab() {
     },
     messageText: {
       fontSize: isLargeScreen ? 18 : isTablet ? 16 : isPhoneLandscape ? 14 : 15,
-      lineHeight: isLargeScreen ? 28 : isTablet ? 24 : isPhoneLandscape ? 20 : 22,
+      lineHeight: isLargeScreen ? 26 : isTablet ? 22 : isPhoneLandscape ? 20 : 21,
       flexWrap: 'wrap',
       flexShrink: 1,
       textAlign: 'left',
-      minHeight: isLargeScreen ? 28 : isTablet ? 24 : isPhoneLandscape ? 20 : 22,
-      letterSpacing: 0.2,
+      minHeight: isLargeScreen ? 26 : isTablet ? 22 : isPhoneLandscape ? 20 : 21,
+      letterSpacing: 0.1,
     },
     userText: {
       color: colors.primaryForeground,
@@ -2188,10 +2204,10 @@ export default function AssistantTab() {
                   </View>
                 ) : (
                   <View style={{ 
-                    minHeight: isTablet ? 20 : isPhoneLandscape ? 16 : 18, 
-                    justifyContent: 'center',
+                    minHeight: isTablet ? 24 : isPhoneLandscape ? 20 : 22, 
+                    justifyContent: 'flex-start',
                     width: '100%',
-                    paddingVertical: 0
+                    paddingVertical: 2
                   }}>
                     <Text
                       style={[

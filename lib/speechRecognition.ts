@@ -25,7 +25,21 @@ export const speechRecognitionService = {
       
       // For native platforms, check if Voice module is available
       if (!Voice) {
+        console.log('Voice module not available');
         return false;
+      }
+      
+      // Additional check for Android to ensure proper initialization
+      if (Platform.OS === 'android') {
+        // Check if critical Voice methods exist
+        const hasRequiredMethods = typeof Voice.start === 'function' && 
+                                 typeof Voice.stop === 'function' && 
+                                 typeof Voice.destroy === 'function';
+        
+        if (!hasRequiredMethods) {
+          console.log('Voice module methods not properly available on Android');
+          return false;
+        }
       }
       
       // For native platforms, we'll use @react-native-voice/voice which works on both iOS and Android
@@ -342,41 +356,65 @@ async function startNativeSpeechRecognition(
       throw new Error('Voice module is not available');
     }
     
-    // Clean up any existing instances first
+    // Clean up any existing instances first with multiple attempts
     try {
+      console.log('Cleaning up previous Voice instance...');
+      await Voice.stop();
+      await Voice.cancel();
       await Voice.destroy();
+      console.log('Previous Voice instance destroyed');
     } catch (e) {
-      // No previous instance to destroy
+      console.log('No previous Voice instance to destroy:', e);
     }
 
-    // Small delay to ensure cleanup is complete
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Wait for cleanup to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     // Check if Voice methods are available (Android issue fix)
     if (typeof Voice.start !== 'function') {
-      throw new Error('Voice.start method is not available');
+      throw new Error('Voice.start method is not available. Please restart the app and ensure microphone permissions are granted.');
     }
     
-    // Set up event listeners before starting
+    // For Android, let's try to check if the service is available
+    if (Platform.OS === 'android') {
+      try {
+        const isAvailable = await Voice.isAvailable();
+        console.log('Voice service available on Android:', isAvailable);
+        
+        if (!isAvailable) {
+          throw new Error('Speech recognition service is not available on this Android device');
+        }
+      } catch (availError) {
+        console.warn('Could not check Voice availability:', availError);
+        // Continue anyway as some devices might not support isAvailable check
+      }
+    }
+    
+    // Set up event listeners before starting (crucial for Android)
     Voice.onSpeechStart = (e) => {
+      console.log('Speech recognition started:', e);
       callbacks.onSpeechStart?.();
     };
     
     Voice.onSpeechRecognized = (e) => {
-      // Speech recognized
+      console.log('Speech recognized:', e);
     };
     
     Voice.onSpeechResults = (e: SpeechResultsEvent) => {
+      console.log('Speech results (final):', e);
       if (e.value && e.value.length > 0) {
         const bestResult = e.value[0];
+        console.log('Final result:', bestResult);
         // Mark this as final result
         callbacks.onSpeechResults?.(bestResult, true);
       }
     };
 
     Voice.onSpeechPartialResults = (e: SpeechResultsEvent) => {
+      console.log('Partial results:', e);
       if (e.value && e.value.length > 0) {
         const partialResult = e.value[0];
+        console.log('Partial result:', partialResult);
         // Mark this as partial result
         callbacks.onSpeechResults?.(partialResult, false);
       }
@@ -390,6 +428,8 @@ async function startNativeSpeechRecognition(
       if (e.error) {
         const errorCode = e.error.code || e.error.message || '';
         const errorString = String(errorCode).toLowerCase();
+        
+        console.log('Error code/message:', errorCode);
         
         if (errorString.includes('permission') || errorString.includes('denied') || errorCode === '9') {
           errorMessage = 'Microphone permission denied. Please enable microphone access in your device settings and restart the app.';
@@ -406,7 +446,7 @@ async function startNativeSpeechRecognition(
         } else if (errorString.includes('insufficient') || errorCode === '9') {
           errorMessage = 'Insufficient permissions. Please enable microphone access in settings.';
         } else if (errorString.includes('startspeech') || errorString.includes('null')) {
-          errorMessage = 'Failed to start speech recognition: Type error: cannot read property \'startSpeech\' of null. Please check your microphone permission and restart the app.';
+          errorMessage = 'Failed to start speech recognition: Speech service not properly initialized. Please restart the app and ensure microphone permissions are granted.';
         } else {
           errorMessage = `Speech recognition error: ${e.error.message || errorCode}`;
         }
@@ -416,10 +456,11 @@ async function startNativeSpeechRecognition(
     };
     
     Voice.onSpeechEnd = (e) => {
+      console.log('Speech recognition ended:', e);
       callbacks.onSpeechEnd?.();
     };
 
-    // Platform-specific options
+    // Platform-specific options with more robust Android settings
     const options: any = {};
 
     // Android-specific configuration
@@ -427,20 +468,57 @@ async function startNativeSpeechRecognition(
       options.EXTRA_LANGUAGE_MODEL = 'LANGUAGE_MODEL_FREE_FORM';
       options.EXTRA_MAX_RESULTS = 5;
       options.EXTRA_PARTIAL_RESULTS = true;
-      options.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS = 2000;
-      options.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS = 2000;
-      options.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS = 2000;
+      options.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS = 1500;
+      options.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS = 1500;
+      options.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS = 1500;
       options.REQUEST_PERMISSIONS_AUTO = false; // We handle permissions manually
       options.EXTRA_PREFER_OFFLINE = false; // Use online recognition for better accuracy
+      // Add additional Android-specific options
+      options.EXTRA_CALLING_PACKAGE = 'com.pp.aura';
+      options.EXTRA_PROMPT = 'Speak now';
     }
 
-    // Use a timeout for the start operation to catch hanging issues
-    await Promise.race([
-      Voice.start(language, options),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Voice.start timeout - took too long to initialize')), 10000)
-      )
-    ]);
+    console.log('Starting Voice.start with language:', language, 'options:', options);
+    
+    // Try to start with multiple attempts for Android
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      try {
+        console.log(`Voice.start attempt ${attempts + 1}/${maxAttempts}`);
+        
+        // Use a timeout for the start operation to catch hanging issues
+        await Promise.race([
+          Voice.start(language, options),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Voice.start timeout - took too long to initialize')), 8000)
+          )
+        ]);
+        
+        console.log('Voice.start completed successfully');
+        return; // Success, exit the function
+        
+      } catch (attemptError) {
+        attempts++;
+        console.error(`Voice.start attempt ${attempts} failed:`, attemptError);
+        
+        if (attempts >= maxAttempts) {
+          throw attemptError; // Re-throw the last error
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Clean up before retry
+        try {
+          await Voice.stop();
+          await Voice.cancel();
+        } catch (cleanupError) {
+          console.warn('Cleanup before retry failed:', cleanupError);
+        }
+      }
+    }
     
   } catch (e) {
     console.error('Error starting native speech recognition:', e);
@@ -450,17 +528,19 @@ async function startNativeSpeechRecognition(
     if (errorString.includes('permission')) {
       errorMessage = 'Microphone permission is required. Please enable microphone access in your device settings and restart the app.';
     } else if (errorString.includes('not available') || errorString.includes('not found')) {
-      errorMessage = 'Speech recognition is not available on this device.';
+      errorMessage = 'Speech recognition is not available on this device. Please ensure Google services are installed and up to date.';
     } else if (errorString.includes('already started') || errorString.includes('busy')) {
       errorMessage = 'Speech recognition is already running. Please wait and try again.';
     } else if (errorString.includes('cannot read property') && errorString.includes('startspeech')) {
-      errorMessage = 'Failed to start speech recognition: Type error: cannot read property \'startSpeech\' of null. Please check your microphone permission and restart the app.';
+      errorMessage = 'Failed to start speech recognition: Speech service not properly initialized. Please restart the app and ensure microphone permissions are granted.';
     } else if (errorString.includes('timeout')) {
       errorMessage = 'Speech recognition took too long to start. Please try again.';
     } else if (errorString.includes('voice module') || errorString.includes('voice.start')) {
       errorMessage = 'Speech recognition module is not properly installed. Please restart the app.';
+    } else if (errorString.includes('service is not available')) {
+      errorMessage = 'Speech recognition service is not available on this Android device. Please ensure Google app is installed and speech recognition is enabled in system settings.';
     } else {
-      errorMessage = `Failed to start speech recognition: ${e}`;
+      errorMessage = `Failed to start speech recognition: ${e}. Please restart the app and ensure microphone permissions are granted.`;
     }
     
     callbacks.onSpeechError?.(errorMessage);
