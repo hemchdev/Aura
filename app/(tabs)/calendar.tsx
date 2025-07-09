@@ -609,15 +609,15 @@ export default function CalendarTab() {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.card,
-      borderRadius: isTablet ? 16 : 12,
-      marginHorizontal: isTablet ? 16 : 12,
-      marginTop: isTablet ? 16 : 12,
-      marginBottom: isTablet ? 16 : 12,
+      borderRadius: isTablet ? 12 : 10,
+      marginHorizontal: isTablet ? 12 : 8,
+      marginTop: isTablet ? 12 : 8,
+      marginBottom: isTablet ? 12 : 8,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: resolvedTheme === 'dark' ? 0.3 : 0.1,
-      shadowRadius: 8,
-      elevation: 4,
+      shadowRadius: 6,
+      elevation: 3,
       overflow: 'hidden',
     },
     eventsContainer: {
@@ -1185,7 +1185,7 @@ export default function CalendarTab() {
 
   // Navigation functions for month changes
   const onMonthChange = (month: any) => {
-    console.log('Month changed to:', month.dateString);
+    // console.log('Month changed to:', month.dateString);
     setCurrentMonth(month.dateString);
   };
 

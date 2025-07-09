@@ -14,15 +14,15 @@ export default function Index() {
 
   useEffect(() => {
     // Log device information for debugging
-    console.log('Device Info:', {
-      platform: Platform.OS,
-      version: Platform.Version,
-      screenSize: { width: window.width, height: window.height },
-      scale: window.scale,
-      fontScale: window.fontScale,
-      isSmallScreen,
-      isTablet,
-    });
+    // console.log('Device Info:', {
+    //   platform: Platform.OS,
+    //   version: Platform.Version,
+    //   screenSize: { width: window.width, height: window.height },
+    //   scale: window.scale,
+    //   fontScale: window.fontScale,
+    //   isSmallScreen,
+    //   isTablet,
+    // });
 
     // Check environment variables
     const requiredEnvVars = [
@@ -45,7 +45,7 @@ export default function Index() {
 
     // Test basic functionality
     try {
-      console.log('App initialization successful');
+      // console.log('App initialization successful');
     } catch (error) {
       console.error('App initialization error:', error);
       setErrorInfo(`Initialization error: ${error}`);

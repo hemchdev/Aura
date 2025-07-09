@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -48,6 +48,8 @@ export default function AssistantTab() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [recordingTimer, setRecordingTimer] = useState<any>(null);
   const [recordingTranscript, setRecordingTranscript] = useState('');
+  const [finalTranscript, setFinalTranscript] = useState('');
+  const [hasProcessedFinalResult, setHasProcessedFinalResult] = useState(false);
   const [showRecordingModal, setShowRecordingModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [screenDimensions, setScreenDimensions] = useState(() => Dimensions.get('window'));
@@ -67,6 +69,18 @@ export default function AssistantTab() {
     loadChatHistory();
     loadUserProfile();
     initializeNotifications();
+    
+    // Check microphone permissions on Android startup
+    if (Platform.OS === 'android') {
+      speechRecognitionService.checkMicrophonePermission().then(hasPermission => {
+        // console.log('Microphone permission status on startup:', hasPermission);
+        if (!hasPermission) {
+          // console.log('Microphone permission not granted, will request when needed');
+        }
+      }).catch(error => {
+        console.warn('Failed to check microphone permission on startup:', error);
+      });
+    }
     
     // Listen for dimension changes (orientation, etc.)
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
@@ -274,37 +288,37 @@ export default function AssistantTab() {
       isVoiceMessage: isVoiceInput,
     };
 
+    // Immediately add user message and start loading
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
     try {
-      // Save user message
-      await saveMessage(text, 'user');
+      // Save user message (non-blocking)
+      saveMessage(text, 'user').catch(error => 
+        console.warn('Failed to save user message:', error)
+      );
 
-      // Get conversation history
-      const history = messages.slice(-10).map((msg) => ({
+      // Get conversation history (limit to last 5 messages for better performance)
+      const history = messages.slice(-5).map((msg) => ({
         role: msg.role,
         content: msg.content,
       }));
 
-      // Process with Gemini
-      const response: GeminiResponse = await geminiService.processUserMessage(text, history);
+      // Process with Gemini with faster timeout for better responsiveness
+      const response: GeminiResponse = await Promise.race([
+        geminiService.processUserMessage(text, history),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 8000)
+        )
+      ]);
       
-      // Debug: Log the complete Gemini response
-      console.log('=== GEMINI RESPONSE DEBUG ===');
-      console.log('User input:', text);
-      console.log('Intent:', response.intent);
-      console.log('Entities:', JSON.stringify(response.entities, null, 2));
-      console.log('Response text:', response.responseText);
-      console.log('============================');
-
       // Check if this is an action intent that will generate its own response
       const actionIntents = ['create_event', 'create_reminder', 'set_reminder', 'get_events', 'get_reminders', 
                            'update_event', 'delete_event', 'update_reminder', 'delete_reminder'];
       const isActionIntent = actionIntents.includes(response.intent);
 
       // Only add AI response message for non-action intents
-      if (!isActionIntent) {
+      if (!isActionIntent && response.responseText) {
         const assistantMessage: Message = {
           id: generateId(),
           content: response.responseText,
@@ -313,44 +327,43 @@ export default function AssistantTab() {
         };
 
         setMessages((prev) => [...prev, assistantMessage]);
-        await saveMessage(response.responseText, 'assistant');
+        // Save assistant message (non-blocking)
+        saveMessage(response.responseText, 'assistant').catch(error => 
+          console.warn('Failed to save assistant message:', error)
+        );
       }
 
       // Handle intents (this will add specific messages for action intents)
       await handleIntent(response);
 
-      // For voice output, clean the text from markdown
-      const responseTextForSpeech = isActionIntent ? 
-        (response.responseText || "Action completed") : response.responseText;
-      
-      const cleanResponseForSpeech = responseTextForSpeech
-        .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold markdown
-        .replace(/\*(.*?)\*/g, '$1') // Remove italic markdown
-        .replace(/`(.*?)`/g, '$1') // Remove code markdown
-        .replace(/#{1,6}\s/g, '') // Remove heading markdown
-        .trim();
+      // Handle voice output asynchronously if needed
+      if (profile?.settings?.voice_enabled !== false && 
+          (isVoiceInput || profile?.settings?.always_voice_response === true)) {
+        
+        const responseTextForSpeech = isActionIntent ? 
+          (response.responseText || "Action completed") : response.responseText;
+        
+        const cleanResponseForSpeech = responseTextForSpeech
+          .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold markdown
+          .replace(/\*(.*?)\*/g, '$1') // Remove italic markdown
+          .replace(/`(.*?)`/g, '$1') // Remove code markdown
+          .replace(/#{1,6}\s/g, '') // Remove heading markdown
+          .trim();
 
-      // Check if voice assistant is enabled and if this was a voice input or user prefers voice responses
-      const shouldSpeak = profile?.settings?.voice_enabled !== false && 
-                         (isVoiceInput || profile?.settings?.always_voice_response === true);
-
-      if (shouldSpeak) {
-        try {
-          await speechService.speak(cleanResponseForSpeech, {
-            language: 'en',
-            pitch: 1.0,
-            rate: 0.9,
-          });
-        } catch (speechError) {
-          console.error('Error with text-to-speech:', speechError);
-          // Don't show error to user for TTS failures, just log it
-        }
+        // Speak asynchronously without blocking UI
+        speechService.speak(cleanResponseForSpeech, {
+          language: 'en',
+          pitch: 1.0,
+          rate: 0.9,
+        }).catch(error => console.warn('TTS error:', error));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing message:', error);
       const errorMessage: Message = {
         id: generateId(),
-        content: "I&apos;m sorry, I encountered an error processing your request. Please try again.",
+        content: error?.message === 'Request timeout' ? 
+          "Request timed out. Please try again with a shorter message." :
+          "I'm sorry, I encountered an error processing your request. Please try again.",
         role: 'assistant',
         timestamp: new Date(),
       };
@@ -418,7 +431,7 @@ export default function AssistantTab() {
   };
 
   const handleCreateEvent = async (response: GeminiResponse) => {
-    console.log('Creating event with response:', JSON.stringify(response.entities, null, 2));
+    // console.log('Creating event with response:', JSON.stringify(response.entities, null, 2));
     
     // Add explicit debug for the exact case user is testing
     if (response.entities.title === "Project deadline") {
@@ -1155,6 +1168,8 @@ export default function AssistantTab() {
     setIsListening(true);
     setRecordingTime(0);
     setRecordingTranscript('');
+    setFinalTranscript('');
+    setHasProcessedFinalResult(false);
     setShowRecordingModal(true);
     startPulseAnimation();
     
@@ -1170,9 +1185,20 @@ export default function AssistantTab() {
         onSpeechStart: () => {
           console.log('Speech recognition started successfully');
         },
-        onSpeechResults: (text: string) => {
-          console.log('Speech recognition result:', text);
-          setRecordingTranscript(text);
+        onSpeechResults: (text: string, isFinal?: boolean) => {
+          console.log('Speech recognition result:', text, 'isFinal:', isFinal);
+          
+          if (isFinal) {
+            // This is a final result
+            setFinalTranscript(text);
+            setRecordingTranscript(text);
+            setHasProcessedFinalResult(true);
+          } else {
+            // This is a partial result, only update if we haven't processed a final result yet
+            if (!hasProcessedFinalResult) {
+              setRecordingTranscript(text);
+            }
+          }
         },
         onSpeechError: (error: string) => {
           console.error('Speech recognition error:', error);
@@ -1216,28 +1242,24 @@ export default function AssistantTab() {
       speechRecognitionService.stopListening();
     }
     
-    if (sendMessage && recordingTranscript.trim()) {
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        content: recordingTranscript.trim(),
-        role: 'user' as const,
-        timestamp: new Date(),
-        isVoiceMessage: true,
-      };
-      
-      setMessages(prev => [...prev, userMessage]);
-      
-      // Save to database
-      if (user) {
-        await saveMessage(userMessage.content, 'user');
+    if (sendMessage) {
+      // Use final transcript if available, otherwise use the current transcript
+      const messageText = finalTranscript.trim() || recordingTranscript.trim();
+      if (messageText && !hasProcessedFinalResult) {
+        // Only process if we haven't already processed the final result
+        await processMessage(messageText, true);
+        setHasProcessedFinalResult(true);
+      } else if (messageText && hasProcessedFinalResult) {
+        // If we already processed, just send the final transcript without duplication
+        console.log('Final result already processed, skipping duplicate');
       }
-      
-      // Process the message and get AI response with voice
-      await processMessage(recordingTranscript.trim(), true);
     }
     
+    // Reset states
     setRecordingTime(0);
     setRecordingTranscript('');
+    setFinalTranscript('');
+    setHasProcessedFinalResult(false);
   };
 
   const cancelRecording = () => {
@@ -1251,12 +1273,15 @@ export default function AssistantTab() {
       setRecordingTimer(null);
     }
     
-    if (speechRecognitionService && typeof speechRecognitionService.stopListening === 'function') {
-      speechRecognitionService.stopListening();
+    if (speechRecognitionService && typeof speechRecognitionService.cancel === 'function') {
+      speechRecognitionService.cancel();
     }
     
+    // Reset states
     setRecordingTime(0);
     setRecordingTranscript('');
+    setFinalTranscript('');
+    setHasProcessedFinalResult(false);
   };
 
   const copyMessage = async (messageId: string) => {
@@ -1281,21 +1306,100 @@ export default function AssistantTab() {
     if (!editingMessage || !editText.trim()) return;
 
     try {
+      const editedMessage = messages.find(m => m.id === editingMessage);
+      if (!editedMessage) return;
+
+      // Update the message content
       setMessages(prev => prev.map(msg => 
         msg.id === editingMessage 
           ? { ...msg, content: editText.trim() }
           : msg
       ));
 
+      // Update in database
       await supabase
         .from('chat_messages')
         .update({ content: editText.trim() })
         .eq('id', editingMessage);
 
+      // If this was a user message and it was edited, remove any subsequent assistant messages
+      // and generate a new response for the edited message
+      if (editedMessage.role === 'user') {
+        const messageIndex = messages.findIndex(m => m.id === editingMessage);
+        if (messageIndex !== -1) {
+          // Remove all messages after the edited user message
+          setMessages(prev => prev.slice(0, messageIndex + 1).map(msg => 
+            msg.id === editingMessage 
+              ? { ...msg, content: editText.trim() }
+              : msg
+          ));
+          
+          // Generate new response for the edited message
+          setIsLoading(true);
+          try {
+            // Get conversation history up to the edited message
+            const historyUpToEdit = messages.slice(0, messageIndex).map((msg) => ({
+              role: msg.role,
+              content: msg.content,
+            }));
+
+            // Process the edited message to get new response
+            const response: GeminiResponse = await Promise.race([
+              geminiService.processUserMessage(editText.trim(), historyUpToEdit),
+              new Promise<never>((_, reject) => 
+                setTimeout(() => reject(new Error('Request timeout')), 8000)
+              )
+            ]);
+            
+            // Check if this is an action intent
+            const actionIntents = ['create_event', 'create_reminder', 'set_reminder', 'get_events', 'get_reminders', 
+                               'update_event', 'delete_event', 'update_reminder', 'delete_reminder'];
+            const isActionIntent = actionIntents.includes(response.intent);
+
+            // Add new assistant response for non-action intents
+            if (!isActionIntent && response.responseText) {
+              const assistantMessage: Message = {
+                id: generateId(),
+                content: response.responseText,
+                role: 'assistant',
+                timestamp: new Date(),
+              };
+
+              setMessages((prev) => [...prev, assistantMessage]);
+              // Save assistant message (non-blocking)
+              saveMessage(response.responseText, 'assistant').catch(error => 
+                console.warn('Failed to save assistant message:', error)
+              );
+            }
+
+            // Handle intents for action-based responses
+            await handleIntent(response);
+
+          } catch (error: any) {
+            console.error('Error generating new response for edited message:', error);
+            const errorMessage: Message = {
+              id: generateId(),
+              content: error?.message === 'Request timeout' ? 
+                "Response took too long. Please try again." :
+                "I encountered an error processing your edited message. Please try again.",
+              role: 'assistant',
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, errorMessage]);
+          } finally {
+            setIsLoading(false);
+          }
+        }
+      }
+
       setEditingMessage(null);
       setEditText('');
       
-      showInfoModal('Updated', 'Message updated successfully');
+      if (editedMessage.role === 'user') {
+        showInfoModal('Updated', 'Message updated and new response generated');
+      } else {
+        showInfoModal('Updated', 'Message updated successfully');
+      }
     } catch (error) {
       console.error('Error updating message:', error);
       showInfoModal('Error', 'Failed to update message');
@@ -1471,17 +1575,17 @@ export default function AssistantTab() {
     },
     messagesContainer: {
       flex: 1,
-      paddingHorizontal: isTablet ? 24 : 16,
-      paddingTop: isTablet ? 24 : 16,
-      paddingBottom: isTablet ? 24 : 16,
+      paddingHorizontal: isTablet ? 20 : isPhoneLandscape ? 12 : 14,
+      paddingTop: isTablet ? 20 : isPhoneLandscape ? 12 : 14,
+      paddingBottom: isTablet ? 20 : isPhoneLandscape ? 12 : 14,
     },
     messageContainer: {
-      marginBottom: isTablet ? 20 : 16,
+      marginBottom: isTablet ? 16 : isPhoneLandscape ? 8 : 10,
       maxWidth: isLargeScreen ? '55%' : isTablet ? '65%' : '80%',
       minWidth: isLargeScreen ? '20%' : isTablet ? '25%' : '35%',
       width: 'auto',
       flexShrink: 1,
-      minHeight: isTablet ? 52 : 44,
+      minHeight: isTablet ? 44 : isPhoneLandscape ? 32 : 36,
       justifyContent: 'center',
     },
     userMessage: {
@@ -1491,24 +1595,24 @@ export default function AssistantTab() {
       alignSelf: 'flex-start',
     },
     messageBubble: {
-      padding: isLargeScreen ? 24 : isTablet ? 20 : 16,
-      borderRadius: isLargeScreen ? 28 : isTablet ? 24 : 20,
+      padding: isLargeScreen ? 16 : isTablet ? 12 : isPhoneLandscape ? 8 : 10,
+      borderRadius: isLargeScreen ? 20 : isTablet ? 16 : 14,
       flex: 1,
       maxWidth: '100%',
-      minHeight: isLargeScreen ? 60 : isTablet ? 52 : 44,
-      minWidth: isLargeScreen ? 100 : isTablet ? 80 : 60,
+      minHeight: isLargeScreen ? 44 : isTablet ? 36 : isPhoneLandscape ? 24 : 28,
+      minWidth: isLargeScreen ? 80 : isTablet ? 60 : 50,
       justifyContent: 'center',
       alignSelf: 'stretch',
     },
     userBubble: {
       backgroundColor: colors.primary,
-      marginLeft: isLargeScreen ? 60 : isTablet ? 40 : 20,
+      marginLeft: isLargeScreen ? 60 : isTablet ? 40 : isPhoneLandscape ? 12 : 16,
     },
     assistantBubble: {
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
-      marginRight: isLargeScreen ? 60 : isTablet ? 40 : 20,
+      marginRight: isLargeScreen ? 60 : isTablet ? 40 : isPhoneLandscape ? 12 : 16,
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
@@ -1519,12 +1623,12 @@ export default function AssistantTab() {
       elevation: 1,
     },
     messageText: {
-      fontSize: isLargeScreen ? 20 : isTablet ? 18 : 16,
-      lineHeight: isLargeScreen ? 32 : isTablet ? 28 : 24,
+      fontSize: isLargeScreen ? 18 : isTablet ? 16 : isPhoneLandscape ? 14 : 15,
+      lineHeight: isLargeScreen ? 28 : isTablet ? 24 : isPhoneLandscape ? 20 : 22,
       flexWrap: 'wrap',
       flexShrink: 1,
       textAlign: 'left',
-      minHeight: isLargeScreen ? 32 : isTablet ? 28 : 24,
+      minHeight: isLargeScreen ? 28 : isTablet ? 24 : isPhoneLandscape ? 20 : 22,
       letterSpacing: 0.2,
     },
     userText: {
@@ -1534,10 +1638,10 @@ export default function AssistantTab() {
       color: colors.cardForeground,
     },
     timestamp: {
-      fontSize: isLargeScreen ? 16 : isTablet ? 14 : isPhoneLandscape ? 11 : 12,
+      fontSize: isLargeScreen ? 14 : isTablet ? 12 : isPhoneLandscape ? 10 : 11,
       color: colors.mutedForeground,
-      marginTop: isLargeScreen ? 12 : isTablet ? 8 : isPhoneLandscape ? 3 : 4,
-      paddingHorizontal: isLargeScreen ? 24 : isTablet ? 20 : isPhoneLandscape ? 14 : 16,
+      marginTop: isLargeScreen ? 8 : isTablet ? 6 : isPhoneLandscape ? 2 : 3,
+      paddingHorizontal: isLargeScreen ? 20 : isTablet ? 16 : isPhoneLandscape ? 10 : 12,
     },
     inputContainer: {
       flexDirection: 'row',
@@ -1697,28 +1801,28 @@ export default function AssistantTab() {
     },
     actionsMenu: {
       backgroundColor: colors.card,
-      borderRadius: 12,
+      borderRadius: isTablet ? 12 : 10,
       borderWidth: 1,
       borderColor: colors.border,
-      marginTop: 8,
-      padding: 8,
+      marginTop: isTablet ? 8 : isPhoneLandscape ? 4 : 6,
+      padding: isTablet ? 8 : isPhoneLandscape ? 4 : 6,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.15,
       shadowRadius: 8,
       elevation: 8,
-      minWidth: 140,
+      minWidth: isTablet ? 140 : 120,
     },
     actionItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 12,
-      gap: 12,
+      padding: isTablet ? 12 : isPhoneLandscape ? 8 : 10,
+      gap: isTablet ? 12 : isPhoneLandscape ? 8 : 10,
       borderRadius: 8,
-      minHeight: 44,
+      minHeight: isTablet ? 44 : isPhoneLandscape ? 32 : 36,
     },
     actionText: {
-      fontSize: 15,
+      fontSize: isTablet ? 15 : isPhoneLandscape ? 13 : 14,
       fontWeight: '500',
       color: colors.foreground,
       flex: 1,
@@ -2084,10 +2188,10 @@ export default function AssistantTab() {
                   </View>
                 ) : (
                   <View style={{ 
-                    minHeight: isTablet ? 28 : 22, 
+                    minHeight: isTablet ? 20 : isPhoneLandscape ? 16 : 18, 
                     justifyContent: 'center',
                     width: '100%',
-                    paddingVertical: 2
+                    paddingVertical: 0
                   }}>
                     <Text
                       style={[

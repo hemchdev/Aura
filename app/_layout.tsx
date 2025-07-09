@@ -34,7 +34,7 @@ export default function RootLayout() {
     async function prepare() {
       try {
         // Add screen size logging for debugging
-        console.log('Screen info:', { isSmallScreen, isTablet });
+        // console.log('Screen info:', { isSmallScreen, isTablet });
         
         // Initialize notification service early
         await notificationService.initialize();
@@ -46,7 +46,7 @@ export default function RootLayout() {
         // Simulate some loading time for better UX (you can remove this in production)
         await new Promise(resolve => setTimeout(resolve, 1500));
         
-        console.log('App initialization complete');
+        // console.log('App initialization complete');
       } catch (e) {
         console.warn('App initialization error:', e);
       } finally {
